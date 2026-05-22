@@ -15,8 +15,17 @@ import (
 
 func main() {
 	transport := flag.String("transport", "stdio", "Transport to use: stdio or http")
-	port := flag.String("port", "8080", "Port to listen on when transport=http")
+	port := flag.String("port", "", "Port to listen on when transport=http (defaults to PORT env var, then 8080)")
 	flag.Parse()
+
+	// Hosting platforms inject PORT automatically.
+	if *port == "" {
+		if envPort := os.Getenv("PORT"); envPort != "" {
+			*port = envPort
+		} else {
+			*port = "8080"
+		}
+	}
 
 	godotenv.Load() // load .env if present; real env vars take precedence
 
@@ -42,7 +51,7 @@ func main() {
 		if err := http.ListenAndServe(addr, http.StripPrefix("/mcp", handler)); err != nil {
 			log.Fatal(err)
 		}
-	default:
+	default: // run with stdio transport by default
 		if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 			log.Fatal(err)
 		}
