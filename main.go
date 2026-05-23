@@ -18,7 +18,6 @@ func main() {
 	port := flag.String("port", "", "Port to listen on when transport=http (defaults to PORT env var, then 8080)")
 	flag.Parse()
 
-	// Hosting platforms inject PORT automatically.
 	if *port == "" {
 		if envPort := os.Getenv("PORT"); envPort != "" {
 			*port = envPort
@@ -27,7 +26,7 @@ func main() {
 		}
 	}
 
-	godotenv.Load() // load .env if present; real env vars take precedence
+	godotenv.Load()
 
 	clientID := os.Getenv("FT_CLIENT_ID")
 	clientSecret := os.Getenv("FT_CLIENT_SECRET")
@@ -51,7 +50,7 @@ func main() {
 		if err := http.ListenAndServe(addr, http.StripPrefix("/mcp", handler)); err != nil {
 			log.Fatal(err)
 		}
-	default: // run with stdio transport by default
+	default:
 		if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 			log.Fatal(err)
 		}
