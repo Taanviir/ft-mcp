@@ -9,7 +9,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tanas/mcp42/client"
+	"github.com/tanas/mcp42/intra"
 	"github.com/tanas/mcp42/tools"
 )
 
@@ -35,7 +35,7 @@ func main() {
 		log.Fatal("FT_CLIENT_ID and FT_CLIENT_SECRET must be set")
 	}
 
-	apiClient := client.New(clientID, clientSecret)
+	apiClient := intra.New(clientID, clientSecret)
 
 	s := mcp.NewServer(&mcp.Implementation{Name: "42-api", Version: "1.0.0"}, nil)
 	tools.RegisterAll(s, apiClient)

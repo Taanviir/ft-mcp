@@ -2,12 +2,12 @@ package tools
 
 import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tanas/mcp42/client"
+	"github.com/tanas/mcp42/intra"
 )
 
-var api *client.Client
+var api *intra.Client
 
-func RegisterAll(s *mcp.Server, c *client.Client) {
+func RegisterAll(s *mcp.Server, c *intra.Client) {
 	api = c
 	registerUsers(s)
 	registerCampus(s)
