@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tanas/mcp42/client"
 )
 
 type listCampusInput struct {
@@ -13,14 +12,12 @@ type listCampusInput struct {
 	PerPage int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleListCampus(c *client.Client) func(context.Context, *mcp.CallToolRequest, listCampusInput) (*mcp.CallToolResult, any, error) {
-	return func(_ context.Context, _ *mcp.CallToolRequest, input listCampusInput) (*mcp.CallToolResult, any, error) {
-		data, err := c.Get("/campus", paginationParams(input.Page, input.PerPage))
-		if err != nil {
-			return errorResult(err), nil, nil
-		}
-		return textResult(data), nil, nil
+func handleListCampus(_ context.Context, _ *mcp.CallToolRequest, input listCampusInput) (*mcp.CallToolResult, any, error) {
+	data, err := api.Get("/campus", paginationParams(input.Page, input.PerPage))
+	if err != nil {
+		return errorResult(err), nil, nil
 	}
+	return textResult(data), nil, nil
 }
 
 type campusUsersInput struct {
@@ -29,14 +26,12 @@ type campusUsersInput struct {
 	PerPage  int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleGetCampusUsers(c *client.Client) func(context.Context, *mcp.CallToolRequest, campusUsersInput) (*mcp.CallToolResult, any, error) {
-	return func(_ context.Context, _ *mcp.CallToolRequest, input campusUsersInput) (*mcp.CallToolResult, any, error) {
-		data, err := c.Get(fmt.Sprintf("/campus/%d/users", input.CampusID), paginationParams(input.Page, input.PerPage))
-		if err != nil {
-			return errorResult(err), nil, nil
-		}
-		return textResult(data), nil, nil
+func handleGetCampusUsers(_ context.Context, _ *mcp.CallToolRequest, input campusUsersInput) (*mcp.CallToolResult, any, error) {
+	data, err := api.Get(fmt.Sprintf("/campus/%d/users", input.CampusID), paginationParams(input.Page, input.PerPage))
+	if err != nil {
+		return errorResult(err), nil, nil
 	}
+	return textResult(data), nil, nil
 }
 
 type locationsInput struct {
@@ -45,35 +40,31 @@ type locationsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleGetLocations(c *client.Client) func(context.Context, *mcp.CallToolRequest, locationsInput) (*mcp.CallToolResult, any, error) {
-	return func(_ context.Context, _ *mcp.CallToolRequest, input locationsInput) (*mcp.CallToolResult, any, error) {
-		var path string
-		if input.CampusID > 0 {
-			path = fmt.Sprintf("/campus/%d/locations", input.CampusID)
-		} else {
-			path = "/locations"
-		}
-		data, err := c.Get(path, paginationParams(input.Page, input.PerPage))
-		if err != nil {
-			return errorResult(err), nil, nil
-		}
-		return textResult(data), nil, nil
+func handleGetLocations(_ context.Context, _ *mcp.CallToolRequest, input locationsInput) (*mcp.CallToolResult, any, error) {
+	path := "/locations"
+	if input.CampusID > 0 {
+		path = fmt.Sprintf("/campus/%d/locations", input.CampusID)
 	}
+	data, err := api.Get(path, paginationParams(input.Page, input.PerPage))
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	return textResult(data), nil, nil
 }
 
-func registerCampus(s *mcp.Server, c *client.Client) {
+func registerCampus(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_campus",
 		Description: "List all 42 campuses worldwide",
-	}, handleListCampus(c))
+	}, handleListCampus)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_campus_users",
 		Description: "Get users enrolled at a specific campus",
-	}, handleGetCampusUsers(c))
+	}, handleGetCampusUsers)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_locations",
 		Description: "Get active campus locations — which users are currently logged into a computer. Filter by campus_id to scope to one campus.",
-	}, handleGetLocations(c))
+	}, handleGetLocations)
 }

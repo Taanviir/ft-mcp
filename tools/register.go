@@ -5,10 +5,13 @@ import (
 	"github.com/tanas/mcp42/client"
 )
 
+var api *client.Client
+
 func RegisterAll(s *mcp.Server, c *client.Client) {
-	registerUsers(s, c)
-	registerCampus(s, c)
-	registerProjects(s, c)
+	api = c
+	registerUsers(s)
+	registerCampus(s)
+	registerProjects(s)
 }
 
 func errorResult(err error) *mcp.CallToolResult {

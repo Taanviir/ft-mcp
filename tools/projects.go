@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tanas/mcp42/client"
 )
 
 type listCursusInput struct {
@@ -13,14 +12,12 @@ type listCursusInput struct {
 	PerPage int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleListCursus(c *client.Client) func(context.Context, *mcp.CallToolRequest, listCursusInput) (*mcp.CallToolResult, any, error) {
-	return func(_ context.Context, _ *mcp.CallToolRequest, input listCursusInput) (*mcp.CallToolResult, any, error) {
-		data, err := c.Get("/cursus", paginationParams(input.Page, input.PerPage))
-		if err != nil {
-			return errorResult(err), nil, nil
-		}
-		return textResult(data), nil, nil
+func handleListCursus(_ context.Context, _ *mcp.CallToolRequest, input listCursusInput) (*mcp.CallToolResult, any, error) {
+	data, err := api.Get("/cursus", paginationParams(input.Page, input.PerPage))
+	if err != nil {
+		return errorResult(err), nil, nil
 	}
+	return textResult(data), nil, nil
 }
 
 type listProjectsInput struct {
@@ -29,20 +26,16 @@ type listProjectsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleListProjects(c *client.Client) func(context.Context, *mcp.CallToolRequest, listProjectsInput) (*mcp.CallToolResult, any, error) {
-	return func(_ context.Context, _ *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, any, error) {
-		var path string
-		if input.CursusID > 0 {
-			path = fmt.Sprintf("/cursus/%d/projects", input.CursusID)
-		} else {
-			path = "/projects"
-		}
-		data, err := c.Get(path, paginationParams(input.Page, input.PerPage))
-		if err != nil {
-			return errorResult(err), nil, nil
-		}
-		return textResult(data), nil, nil
+func handleListProjects(_ context.Context, _ *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, any, error) {
+	path := "/projects"
+	if input.CursusID > 0 {
+		path = fmt.Sprintf("/cursus/%d/projects", input.CursusID)
 	}
+	data, err := api.Get(path, paginationParams(input.Page, input.PerPage))
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	return textResult(data), nil, nil
 }
 
 type listEventsInput struct {
@@ -51,35 +44,31 @@ type listEventsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleListEvents(c *client.Client) func(context.Context, *mcp.CallToolRequest, listEventsInput) (*mcp.CallToolResult, any, error) {
-	return func(_ context.Context, _ *mcp.CallToolRequest, input listEventsInput) (*mcp.CallToolResult, any, error) {
-		var path string
-		if input.CampusID > 0 {
-			path = fmt.Sprintf("/campus/%d/events", input.CampusID)
-		} else {
-			path = "/events"
-		}
-		data, err := c.Get(path, paginationParams(input.Page, input.PerPage))
-		if err != nil {
-			return errorResult(err), nil, nil
-		}
-		return textResult(data), nil, nil
+func handleListEvents(_ context.Context, _ *mcp.CallToolRequest, input listEventsInput) (*mcp.CallToolResult, any, error) {
+	path := "/events"
+	if input.CampusID > 0 {
+		path = fmt.Sprintf("/campus/%d/events", input.CampusID)
 	}
+	data, err := api.Get(path, paginationParams(input.Page, input.PerPage))
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	return textResult(data), nil, nil
 }
 
-func registerProjects(s *mcp.Server, c *client.Client) {
+func registerProjects(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_cursus",
 		Description: "List all available cursus (curricula) on the 42 network",
-	}, handleListCursus(c))
+	}, handleListCursus)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_projects",
 		Description: "List projects, optionally filtered to a specific cursus",
-	}, handleListProjects(c))
+	}, handleListProjects)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_events",
 		Description: "List upcoming events, optionally filtered by campus",
-	}, handleListEvents(c))
+	}, handleListEvents)
 }
