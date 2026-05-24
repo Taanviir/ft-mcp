@@ -12,8 +12,8 @@ type listCampusInput struct {
 	PerPage int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleListCampus(ctx context.Context, _ *mcp.CallToolRequest, input listCampusInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleListCampus(ctx context.Context, _ *mcp.CallToolRequest, input listCampusInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -30,8 +30,8 @@ type campusUsersInput struct {
 	PerPage  int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleGetCampusUsers(ctx context.Context, _ *mcp.CallToolRequest, input campusUsersInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleGetCampusUsers(ctx context.Context, _ *mcp.CallToolRequest, input campusUsersInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -48,8 +48,8 @@ type locationsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleGetLocations(ctx context.Context, _ *mcp.CallToolRequest, input locationsInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleGetLocations(ctx context.Context, _ *mcp.CallToolRequest, input locationsInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -64,19 +64,19 @@ func handleGetLocations(ctx context.Context, _ *mcp.CallToolRequest, input locat
 	return textResult(filterJSON[[]ftLocation](data)), nil, nil
 }
 
-func registerCampus(s *mcp.Server) {
+func (t *tools) registerCampus(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_campus",
 		Description: "List all 42 campuses worldwide",
-	}, handleListCampus)
+	}, t.handleListCampus)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_campus_users",
 		Description: "Get users enrolled at a specific campus",
-	}, handleGetCampusUsers)
+	}, t.handleGetCampusUsers)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_locations",
 		Description: "Get active campus locations — which users are currently logged into a computer. Filter by campus_id to scope to one campus.",
-	}, handleGetLocations)
+	}, t.handleGetLocations)
 }

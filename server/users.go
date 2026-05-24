@@ -12,8 +12,8 @@ type getUserInput struct {
 	LoginOrID string `json:"login_or_id" jsonschema:"login name or numeric ID of the 42 user"`
 }
 
-func handleGetUser(ctx context.Context, _ *mcp.CallToolRequest, input getUserInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleGetUser(ctx context.Context, _ *mcp.CallToolRequest, input getUserInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -30,8 +30,8 @@ type listUsersInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleListUsers(ctx context.Context, _ *mcp.CallToolRequest, input listUsersInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleListUsers(ctx context.Context, _ *mcp.CallToolRequest, input listUsersInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -51,8 +51,8 @@ type userSubInput struct {
 	Page      int    `json:"page,omitempty" jsonschema:"page number, starting at 1"`
 }
 
-func handleGetUserCursus(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleGetUserCursus(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -63,8 +63,8 @@ func handleGetUserCursus(ctx context.Context, _ *mcp.CallToolRequest, input user
 	return textResult(filterJSON[[]ftCursusUser](data)), nil, nil
 }
 
-func handleGetUserProjects(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleGetUserProjects(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -75,8 +75,8 @@ func handleGetUserProjects(ctx context.Context, _ *mcp.CallToolRequest, input us
 	return textResult(filterJSON[[]ftProjectUser](data)), nil, nil
 }
 
-func handleGetUserAchievements(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleGetUserAchievements(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -87,31 +87,31 @@ func handleGetUserAchievements(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	return textResult(filterJSON[[]ftAchievement](data)), nil, nil
 }
 
-func registerUsers(s *mcp.Server) {
+func (t *tools) registerUsers(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user",
 		Description: "Get a 42 user's full profile by login or numeric ID. Already includes level, grade, campus, pool cohort, correction points, wallet, and cursus info — sufficient for most profile queries. Only call get_user_cursus additionally if you need the per-skill breakdown.",
-	}, handleGetUser)
+	}, t.handleGetUser)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_users",
 		Description: "List 42 users, optionally filtered by campus ID. Returns minimal info (id, login, displayname, location).",
-	}, handleListUsers)
+	}, t.handleListUsers)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user_cursus",
 		Description: "Get a user's cursus history with per-skill levels. Note: get_user already returns level, grade, and basic cursus data — only call this when you specifically need the skill breakdown.",
-	}, handleGetUserCursus)
+	}, t.handleGetUserCursus)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user_projects",
 		Description: "Get a user's project submissions with status and scores. Results are paginated — use the page parameter if needed.",
-	}, handleGetUserProjects)
+	}, t.handleGetUserProjects)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user_achievements",
 		Description: "Get a user's achievements (badges) on the 42 platform.",
-	}, handleGetUserAchievements)
+	}, t.handleGetUserAchievements)
 }
 
 func paginationParams(page, perPage int) url.Values {

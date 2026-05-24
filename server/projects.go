@@ -14,8 +14,8 @@ type listCursusInput struct {
 	PerPage int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleListCursus(ctx context.Context, _ *mcp.CallToolRequest, input listCursusInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleListCursus(ctx context.Context, _ *mcp.CallToolRequest, input listCursusInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -32,8 +32,8 @@ type listProjectsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleListProjects(ctx context.Context, _ *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleListProjects(ctx context.Context, _ *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -54,8 +54,8 @@ type searchProjectsInput struct {
 	PerPage int    `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleSearchProjects(ctx context.Context, _ *mcp.CallToolRequest, input searchProjectsInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleSearchProjects(ctx context.Context, _ *mcp.CallToolRequest, input searchProjectsInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -89,7 +89,7 @@ func submissionParams(f submissionFilters, page, perPage int) url.Values {
 
 type listProjectSubmissionsInput struct {
 	submissionFilters
-	Page    int `json:"page,omitempty"    jsonschema:"page number, starting at 1"`
+	Page    int `json:"page,omitempty"     jsonschema:"page number, starting at 1"`
 	PerPage int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
@@ -98,8 +98,8 @@ type submissionsPage struct {
 	Results []ftProjectUser `json:"results"`
 }
 
-func handleListProjectSubmissions(ctx context.Context, _ *mcp.CallToolRequest, input listProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleListProjectSubmissions(ctx context.Context, _ *mcp.CallToolRequest, input listProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -127,8 +127,8 @@ type countProjectSubmissionsInput struct {
 	submissionFilters
 }
 
-func handleCountProjectSubmissions(ctx context.Context, _ *mcp.CallToolRequest, input countProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleCountProjectSubmissions(ctx context.Context, _ *mcp.CallToolRequest, input countProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -147,8 +147,8 @@ type listEventsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleListEvents(ctx context.Context, _ *mcp.CallToolRequest, input listEventsInput) (*mcp.CallToolResult, any, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleListEvents(ctx context.Context, _ *mcp.CallToolRequest, input listEventsInput) (*mcp.CallToolResult, any, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -163,34 +163,34 @@ func handleListEvents(ctx context.Context, _ *mcp.CallToolRequest, input listEve
 	return textResult(filterJSON[[]ftEvent](data)), nil, nil
 }
 
-func registerProjects(s *mcp.Server) {
+func (t *tools) registerProjects(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_cursus",
 		Description: "List all available cursus (curricula) on the 42 network",
-	}, handleListCursus)
+	}, t.handleListCursus)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_projects",
 		Description: "List all projects, optionally filtered to a specific cursus",
-	}, handleListProjects)
+	}, t.handleListProjects)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "search_projects",
 		Description: "Search projects by partial name to find their numeric ID. Supports partial matches (e.g. \"transcendence\" finds ft_transcendence). Use this before list_project_submissions or count_project_submissions.",
-	}, handleSearchProjects)
+	}, t.handleSearchProjects)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_project_submissions",
 		Description: "Get student submissions for a project, paginated (up to 100 per page). Response includes a total count so you know how many pages to expect. Each result has a \"validated?\" boolean and \"final_mark\" — filter on those client-side after fetching. Use count_project_submissions first if you only need the total without the records.",
-	}, handleListProjectSubmissions)
+	}, t.handleListProjectSubmissions)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "count_project_submissions",
 		Description: "Get the total number of submissions for a project matching the given filters — without fetching the records. Use this before paginating list_project_submissions to know the full scope. Note: validated status cannot be pre-filtered; check the \"validated?\" field in results from list_project_submissions.",
-	}, handleCountProjectSubmissions)
+	}, t.handleCountProjectSubmissions)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_events",
 		Description: "List events, optionally filtered by campus",
-	}, handleListEvents)
+	}, t.handleListEvents)
 }

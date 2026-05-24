@@ -7,24 +7,24 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func registerResources(s *mcp.Server) {
+func (t *tools) registerResources(s *mcp.Server) {
 	s.AddResourceTemplate(&mcp.ResourceTemplate{
 		URITemplate: "42://users/{login}",
 		Name:        "42 User Profile",
 		Description: "Full profile for a 42 student: level, grade, skills, campus, and cursus info.",
 		MIMEType:    "application/json",
-	}, handleUserResource)
+	}, t.handleUserResource)
 
 	s.AddResourceTemplate(&mcp.ResourceTemplate{
 		URITemplate: "42://campus/{campus_id}",
 		Name:        "42 Campus",
 		Description: "Campus details including name, country, city, and student count.",
 		MIMEType:    "application/json",
-	}, handleCampusResource)
+	}, t.handleCampusResource)
 }
 
-func handleUserResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleUserResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +45,8 @@ func handleUserResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp
 	}, nil
 }
 
-func handleCampusResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	client, err := getClient(ctx)
+func (t *tools) handleCampusResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	client, err := t.getClient(ctx)
 	if err != nil {
 		return nil, err
 	}

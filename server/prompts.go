@@ -7,14 +7,14 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func registerPrompts(s *mcp.Server) {
+func (t *tools) registerPrompts(s *mcp.Server) {
 	s.AddPrompt(&mcp.Prompt{
 		Name:        "analyze_student",
 		Description: "Fetch and analyze a 42 student's full profile, projects, and skills",
 		Arguments: []*mcp.PromptArgument{
 			{Name: "login", Description: "The student's 42 login", Required: true},
 		},
-	}, handleAnalyzeStudent)
+	}, t.handleAnalyzeStudent)
 
 	s.AddPrompt(&mcp.Prompt{
 		Name:        "campus_overview",
@@ -22,10 +22,10 @@ func registerPrompts(s *mcp.Server) {
 		Arguments: []*mcp.PromptArgument{
 			{Name: "campus_id", Description: "Numeric campus ID (use list_campus to find it)", Required: true},
 		},
-	}, handleCampusOverview)
+	}, t.handleCampusOverview)
 }
 
-func handleAnalyzeStudent(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+func (t *tools) handleAnalyzeStudent(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	login := req.Params.Arguments["login"]
 	return &mcp.GetPromptResult{
 		Description: fmt.Sprintf("Analyze 42 student: %s", login),
@@ -54,7 +54,7 @@ Be concise and use the data directly — no need to re-fetch anything already sh
 	}, nil
 }
 
-func handleCampusOverview(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+func (t *tools) handleCampusOverview(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	campusID := req.Params.Arguments["campus_id"]
 	return &mcp.GetPromptResult{
 		Description: fmt.Sprintf("Overview of campus %s", campusID),
