@@ -80,9 +80,32 @@ To connect in Claude.ai, go to Settings → Connectors → Add custom connector 
 
 Each user authenticates with their own 42 API credentials. The server validates them against the 42 API and issues a 24-hour session token — your credentials are never stored beyond the session.
 
-### Other HTTP clients (Claude Code, curl, etc.)
+### Claude Code (remote HTTP)
 
-Get a session token once using the `client_credentials` grant:
+Claude Code has native HTTP MCP support with OAuth. One command:
+
+```bash
+claude mcp add --transport http ft-mcp https://your-app.up.railway.app/mcp
+```
+
+It opens a browser OAuth flow — enter your 42 Client UID and Secret when prompted.
+
+### Other stdio clients (via mcp-remote)
+
+For MCP clients that only support stdio, use [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) as a proxy:
+
+```json
+{
+  "mcpServers": {
+    "42": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://your-app.up.railway.app/mcp"]
+    }
+  }
+}
+```
+
+### Manual token (curl / any HTTP client)
 
 ```bash
 curl -s -X POST https://your-app.up.railway.app/token \
@@ -90,7 +113,7 @@ curl -s -X POST https://your-app.up.railway.app/token \
   | jq -r .access_token
 ```
 
-Then use the token as a Bearer header in your MCP client config.
+Use the returned token as `Authorization: Bearer <token>` in your client config.
 
 ## Tools
 
