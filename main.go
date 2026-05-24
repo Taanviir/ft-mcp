@@ -17,6 +17,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/redis/go-redis/v9"
 	"github.com/tanas/ft-mcp/intra"
 	"github.com/tanas/ft-mcp/server"
 	tokenui "github.com/tanas/ft-mcp/server/token"
@@ -44,7 +45,19 @@ func main() {
 	case "http":
 		tools.RegisterAll(s, nil)
 
-		sessions := newSessionStore()
+		var sessions sessionManager
+		if redisURL := os.Getenv("REDIS_URL"); redisURL != "" {
+			rs, err := newRedisSessionStore(redisURL)
+			if err != nil {
+				log.Printf("sessions: redis unavailable (%v), falling back to in-memory", err)
+				sessions = newMemSessionStore()
+			} else {
+				log.Printf("sessions: using redis")
+				sessions = rs
+			}
+		} else {
+			sessions = newMemSessionStore()
+		}
 		go func() {
 			ticker := time.NewTicker(time.Hour)
 			for range ticker.C {
@@ -88,33 +101,47 @@ func main() {
 
 // --- Session store ---
 
-type session struct {
+const sessionTTL = 24 * time.Hour
+
+type sessionManager interface {
+	create(client *intra.Client) string
+	get(token string) (*intra.Client, bool)
+	cleanup()
+}
+
+func newSessionToken() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// in-memory implementation
+
+type memSession struct {
 	client    *intra.Client
 	expiresAt time.Time
 }
 
-type sessionStore struct {
+type memSessionStore struct {
 	mu   sync.Mutex
-	data map[string]session
+	data map[string]memSession
 }
 
-func newSessionStore() *sessionStore {
-	return &sessionStore{data: make(map[string]session)}
+func newMemSessionStore() *memSessionStore {
+	return &memSessionStore{data: make(map[string]memSession)}
 }
 
-func (s *sessionStore) create(client *intra.Client) string {
-	b := make([]byte, 32)
-	rand.Read(b)
-	token := base64.RawURLEncoding.EncodeToString(b)
+func (s *memSessionStore) create(client *intra.Client) string {
+	token := newSessionToken()
 	s.mu.Lock()
-	s.data[token] = session{client: client, expiresAt: time.Now().Add(24 * time.Hour)}
+	s.data[token] = memSession{client: client, expiresAt: time.Now().Add(sessionTTL)}
 	n := len(s.data)
 	s.mu.Unlock()
 	log.Printf("sessions: created (total active: %d)", n)
 	return token
 }
 
-func (s *sessionStore) get(token string) (*intra.Client, bool) {
+func (s *memSessionStore) get(token string) (*intra.Client, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	sess, ok := s.data[token]
@@ -125,7 +152,7 @@ func (s *sessionStore) get(token string) (*intra.Client, bool) {
 	return sess.client, true
 }
 
-func (s *sessionStore) cleanup() {
+func (s *memSessionStore) cleanup() {
 	s.mu.Lock()
 	now := time.Now()
 	n := 0
@@ -139,6 +166,56 @@ func (s *sessionStore) cleanup() {
 	if n > 0 {
 		log.Printf("sessions: removed %d expired", n)
 	}
+}
+
+// Redis implementation
+
+type redisSessionStore struct {
+	rdb *redis.Client
+}
+
+type redisSessionData struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+}
+
+const redisKeyPrefix = "ft-mcp:session:"
+
+func newRedisSessionStore(redisURL string) (*redisSessionStore, error) {
+	opts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return nil, err
+	}
+	rdb := redis.NewClient(opts)
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		return nil, err
+	}
+	return &redisSessionStore{rdb: rdb}, nil
+}
+
+func (s *redisSessionStore) create(client *intra.Client) string {
+	token := newSessionToken()
+	id, secret := client.Credentials()
+	data, _ := json.Marshal(redisSessionData{ClientID: id, ClientSecret: secret})
+	s.rdb.Set(context.Background(), redisKeyPrefix+token, data, sessionTTL)
+	log.Printf("sessions: created (redis)")
+	return token
+}
+
+func (s *redisSessionStore) get(token string) (*intra.Client, bool) {
+	data, err := s.rdb.Get(context.Background(), redisKeyPrefix+token).Bytes()
+	if err != nil {
+		return nil, false
+	}
+	var sd redisSessionData
+	if err := json.Unmarshal(data, &sd); err != nil {
+		return nil, false
+	}
+	return intra.New(sd.ClientID, sd.ClientSecret), true
+}
+
+func (s *redisSessionStore) cleanup() {
+	// Redis expires keys automatically via TTL
 }
 
 // --- OAuth metadata ---
@@ -233,7 +310,7 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 
 // --- Token endpoint ---
 
-func tokenHandler(sessions *sessionStore) http.HandlerFunc {
+func tokenHandler(sessions sessionManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 
@@ -310,7 +387,7 @@ func tokenHandler(sessions *sessionStore) http.HandlerFunc {
 
 // --- MCP auth middleware ---
 
-func requireAuth(sessions *sessionStore, next http.Handler) http.Handler {
+func requireAuth(sessions sessionManager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok || token == "" {

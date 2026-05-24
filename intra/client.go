@@ -79,6 +79,11 @@ func (c *Client) ensureToken() error {
 	return nil
 }
 
+// Credentials returns the client ID and secret used to construct this client.
+func (c *Client) Credentials() (string, string) {
+	return c.clientID, c.clientSecret
+}
+
 // Validate verifies that the credentials can obtain a 42 API token.
 func (c *Client) Validate() error {
 	return c.ensureToken()
