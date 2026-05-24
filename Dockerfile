@@ -3,8 +3,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o mcp42 .
+RUN CGO_ENABLED=0 GOOS=linux go build -o ft-mcp .
 
 FROM gcr.io/distroless/static-debian12
-COPY --from=builder /app/mcp42 /mcp42
-CMD ["/mcp42", "--transport", "http"]
+COPY --from=builder /app/ft-mcp /ft-mcp
+CMD ["/ft-mcp", "--transport", "http"]

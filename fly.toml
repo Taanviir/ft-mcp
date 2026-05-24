@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for mcp42 on 2026-05-24T01:13:22+04:00
+# fly.toml app configuration file generated for ft-mcp on 2026-05-24T01:13:22+04:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'mcp42'
+app = 'ft-mcp'
 primary_region = 'fra'
 
 [build]

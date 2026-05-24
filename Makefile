@@ -1,4 +1,4 @@
-BINARY := mcp42
+BINARY := ft-mcp
 PORT   ?= 8080
 
 .DEFAULT_GOAL := help

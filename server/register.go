@@ -2,7 +2,7 @@ package tools
 
 import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tanas/mcp42/intra"
+	"github.com/tanas/ft-mcp/intra"
 )
 
 var api *intra.Client

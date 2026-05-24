@@ -1,4 +1,4 @@
-# mcp42
+# ft-mcp
 
 An MCP server for the [42 API](https://api.intra.42.fr/apidoc), built with the official [Go MCP SDK](https://github.com/modelcontextprotocol/go-sdk).
 
@@ -21,7 +21,7 @@ cp .env.example .env
 ### 3. Build
 
 ```bash
-go build -o mcp42 .
+go build -o ft-mcp .
 ```
 
 ## Usage
@@ -31,7 +31,7 @@ go build -o mcp42 .
 Run directly — reads from stdin, writes to stdout:
 
 ```bash
-./mcp42
+./ft-mcp
 ```
 
 Add to Claude Code's MCP config (`~/.claude/settings.json`):
@@ -40,7 +40,7 @@ Add to Claude Code's MCP config (`~/.claude/settings.json`):
 {
   "mcpServers": {
     "42": {
-      "command": "/path/to/mcp42",
+      "command": "/path/to/ft-mcp",
       "env": {
         "FT_CLIENT_ID": "your_client_uid",
         "FT_CLIENT_SECRET": "your_client_secret"
@@ -53,7 +53,7 @@ Add to Claude Code's MCP config (`~/.claude/settings.json`):
 ### HTTP (Claude.ai, ChatGPT, etc.)
 
 ```bash
-./mcp42 --transport http --port 8080
+./ft-mcp --transport http --port 8080
 ```
 
 The server listens on `http://localhost:8080/mcp`. Point your MCP client at that URL.

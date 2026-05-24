@@ -1,4 +1,4 @@
-module github.com/tanas/mcp42
+module github.com/tanas/ft-mcp
 
 go 1.25.0
 
