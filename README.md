@@ -2,44 +2,55 @@
 
 An MCP server for the [42 API](https://api.intra.42.fr/apidoc), built with the official [Go MCP SDK](https://github.com/modelcontextprotocol/go-sdk).
 
-Supports both **stdio** (for local use with Claude Code) and **HTTP** (for remote use with Claude.ai, ChatGPT, etc.).
+Each user connects with their own 42 API credentials, so your rate limits and permissions are entirely your own.
+
+**Live server:** `https://ft-mcp.tanvirahmedanas.com/mcp`
+
+---
 
 ## Setup
 
-### 1. Get API credentials
+### 1. Get 42 API credentials
 
-Create an application at https://profile.intra.42.fr/oauth/applications/new.
-You'll need the **Client UID** and **Client Secret**.
+Create an application at [profile.intra.42.fr/oauth/applications/new](https://profile.intra.42.fr/oauth/applications/new). You'll need the **Client UID** and **Client Secret**.
 
-### 2. Configure credentials
+### 2. Get a bearer token
 
+Visit **[ft-mcp.tanvirahmedanas.com/token](https://ft-mcp.tanvirahmedanas.com/token)**, enter your credentials, and copy the token.
+
+> Claude.ai and Claude Code handle authentication automatically via OAuth — skip this step for those clients.
+
+---
+
+## Connecting clients
+
+<details>
+<summary>Claude.ai</summary>
+
+Go to **Settings → Connectors → Add custom connector**:
+
+| Field | Value |
+|-------|-------|
+| MCP Server URL | `https://ft-mcp.tanvirahmedanas.com/mcp` |
+| OAuth Client ID | your 42 Client UID |
+| OAuth Client Secret | your 42 Client Secret |
+
+</details>
+
+<details>
+<summary>Claude Code</summary>
+
+**Remote (recommended):**
 ```bash
-cp .env.example .env
-# Edit .env and fill in your credentials
+claude mcp add --transport http ft-mcp https://ft-mcp.tanvirahmedanas.com/mcp
 ```
+A browser window will open to complete the OAuth flow.
 
-### 3. Build
-
-```bash
-go build -o ft-mcp .
-```
-
-## Usage
-
-### Stdio (Claude Code)
-
-Run directly — reads from stdin, writes to stdout:
-
-```bash
-./ft-mcp
-```
-
-Add to Claude Code's MCP config (`~/.claude/settings.json`):
-
+**Local (stdio):** build the binary and add to `~/.claude/settings.json`:
 ```json
 {
   "mcpServers": {
-    "42": {
+    "ft-mcp": {
       "command": "/path/to/ft-mcp",
       "env": {
         "FT_CLIENT_ID": "your_client_uid",
@@ -50,70 +61,106 @@ Add to Claude Code's MCP config (`~/.claude/settings.json`):
 }
 ```
 
-### HTTP (Claude.ai, ChatGPT, etc.)
+</details>
 
-Run locally:
+<details>
+<summary>Claude Desktop</summary>
 
-```bash
-./ft-mcp --transport http --port 8080
-```
-
-The server listens on `http://localhost:8080/mcp`. Point your MCP client at that URL.
-
-To test locally with MCP Inspector:
-
-```bash
-npx @modelcontextprotocol/inspector http://localhost:8080/mcp
-```
-
-### Deploy to Railway
-
-1. Push this repo to GitHub
-2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo
-3. No environment variables required — Railway auto-detects the Dockerfile and deploys
-4. Get your public URL from Settings → Networking → Generate Domain
-
-To connect in Claude.ai, go to Settings → Connectors → Add custom connector and enter:
-- **MCP URL:** `https://your-app.up.railway.app/mcp`
-- **OAuth Client ID:** your 42 Client UID (from profile.intra.42.fr/oauth/applications)
-- **OAuth Client Secret:** your 42 Client Secret
-
-Each user authenticates with their own 42 API credentials. The server validates them against the 42 API and issues a 24-hour session token — your credentials are never stored beyond the session.
-
-### Claude Code (remote HTTP)
-
-Claude Code has native HTTP MCP support with OAuth. One command:
-
-```bash
-claude mcp add --transport http ft-mcp https://your-app.up.railway.app/mcp
-```
-
-It opens a browser OAuth flow — enter your 42 Client UID and Secret when prompted.
-
-### Other stdio clients (via mcp-remote)
-
-For MCP clients that only support stdio, use [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) as a proxy:
-
+Edit `claude_desktop_config.json` (build the binary first):
 ```json
 {
   "mcpServers": {
-    "42": {
-      "command": "npx",
-      "args": ["mcp-remote", "https://your-app.up.railway.app/mcp"]
+    "ft-mcp": {
+      "command": "/path/to/ft-mcp",
+      "env": {
+        "FT_CLIENT_ID": "your_client_uid",
+        "FT_CLIENT_SECRET": "your_client_secret"
+      }
     }
   }
 }
 ```
 
-### Manual token (curl / any HTTP client)
+</details>
 
-```bash
-curl -s -X POST https://your-app.up.railway.app/token \
-  -d "grant_type=client_credentials&client_id=YOUR_42_UID&client_secret=YOUR_42_SECRET" \
-  | jq -r .access_token
+<details>
+<summary>Cursor</summary>
+
+Add to `~/.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "ft-mcp": {
+      "url": "https://ft-mcp.tanvirahmedanas.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
 ```
 
-Use the returned token as `Authorization: Bearer <token>` in your client config.
+</details>
+
+<details>
+<summary>VS Code</summary>
+
+Add to `.vscode/mcp.json`:
+```json
+{
+  "servers": {
+    "ft-mcp": {
+      "type": "http",
+      "url": "https://ft-mcp.tanvirahmedanas.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>Windsurf</summary>
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "ft-mcp": {
+      "serverUrl": "https://ft-mcp.tanvirahmedanas.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>Other clients</summary>
+
+Any MCP client that supports stdio can connect via [mcp-remote](https://www.npmjs.com/package/mcp-remote):
+```json
+{
+  "mcpServers": {
+    "ft-mcp": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://ft-mcp.tanvirahmedanas.com/mcp"]
+    }
+  }
+}
+```
+
+For clients that support custom HTTP headers, use the bearer token from [/token](https://ft-mcp.tanvirahmedanas.com/token) and add `Authorization: Bearer YOUR_TOKEN` to your headers config.
+
+</details>
+
+---
 
 ## Tools
 
@@ -133,6 +180,15 @@ Use the returned token as `Authorization: Bearer <token>` in your client config.
 | `list_project_submissions` | Get all submissions for a project, filtered by campus, validation status, and date range |
 | `list_events` | List events, optionally filtered by campus |
 
-## API docs
+---
 
-See [`docs/42API.md`](docs/42API.md) for a full reference of the 42 API — auth flows, rate limits, pagination, all resource types, and common query patterns.
+## Self-hosting
+
+```bash
+go build -o ft-mcp .
+./ft-mcp --transport http --port 8080
+```
+
+## API reference
+
+See [`docs/42API.md`](docs/42API.md) for the full 42 API reference — auth flows, rate limits, pagination, and all resource types.

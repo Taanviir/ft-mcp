@@ -19,6 +19,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/tanas/ft-mcp/intra"
 	"github.com/tanas/ft-mcp/server"
+	tokenui "github.com/tanas/ft-mcp/server/token"
 )
 
 func main() {
@@ -58,7 +59,8 @@ func main() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/.well-known/oauth-authorization-server", oauthMetadata)
 		mux.HandleFunc("/authorize", authorizeHandler)
-		mux.HandleFunc("/token", tokenHandler(sessions))
+		mux.HandleFunc("GET /token", func(w http.ResponseWriter, r *http.Request) { tokenui.Serve(w, "", "") })
+		mux.HandleFunc("POST /token", tokenHandler(sessions))
 		mux.Handle("/", requireAuth(sessions, http.StripPrefix("/mcp", mcpHandler)))
 
 		addr := ":" + *port
@@ -74,6 +76,7 @@ func main() {
 			log.Fatal("FT_CLIENT_ID and FT_CLIENT_SECRET must be set for stdio transport")
 		}
 		tools.RegisterAll(s, intra.New(clientID, clientSecret))
+		log.Printf("42 MCP server running on stdio")
 		if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 			log.Fatal(err)
 		}
@@ -102,7 +105,9 @@ func (s *sessionStore) create(client *intra.Client) string {
 	token := base64.RawURLEncoding.EncodeToString(b)
 	s.mu.Lock()
 	s.data[token] = session{client: client, expiresAt: time.Now().Add(24 * time.Hour)}
+	n := len(s.data)
 	s.mu.Unlock()
+	log.Printf("sessions: created (total active: %d)", n)
 	return token
 }
 
@@ -119,12 +124,17 @@ func (s *sessionStore) get(token string) (*intra.Client, bool) {
 
 func (s *sessionStore) cleanup() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	now := time.Now()
+	n := 0
 	for token, sess := range s.data {
 		if now.After(sess.expiresAt) {
 			delete(s.data, token)
+			n++
 		}
+	}
+	s.mu.Unlock()
+	if n > 0 {
+		log.Printf("sessions: removed %d expired", n)
 	}
 }
 
@@ -174,6 +184,7 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	codes[code] = codeEntry{challenge: challenge, expiresAt: time.Now().Add(5 * time.Minute)}
 	codeMu.Unlock()
 
+	log.Printf("oauth: code issued for redirect %s", redirectURI)
 	callback, err := url.Parse(redirectURI)
 	if err != nil {
 		http.Error(w, "invalid redirect_uri", http.StatusBadRequest)
@@ -192,11 +203,26 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 
 func tokenHandler(sessions *sessionStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		r.ParseForm()
+
+		// Browser form submission from the token UI page
+		if r.FormValue("_source") == "ui" {
+			clientID := r.FormValue("client_id")
+			clientSecret := r.FormValue("client_secret")
+			if clientID == "" || clientSecret == "" {
+				tokenui.Serve(w, "Client UID and Secret are required.", "")
+				return
+			}
+			c := intra.New(clientID, clientSecret)
+			if err := c.Validate(); err != nil {
+				log.Printf("token ui: invalid credentials for %s: %v", clientID, err)
+				tokenui.Serve(w, "Invalid credentials — check your Client UID and Secret.", "")
+				return
+			}
+			log.Printf("token ui: session created for %s", clientID)
+			tokenui.Serve(w, "", sessions.create(c))
 			return
 		}
-		r.ParseForm()
 
 		clientID, clientSecret := extractCreds(r)
 
@@ -213,6 +239,7 @@ func tokenHandler(sessions *sessionStore) http.HandlerFunc {
 			codeMu.Unlock()
 
 			if !ok || time.Now().After(entry.expiresAt) || !verifyPKCE(verifier, entry.challenge) {
+				log.Printf("token: invalid grant — bad code or PKCE mismatch")
 				oauthError(w, "invalid_grant", http.StatusBadRequest)
 				return
 			}
@@ -222,10 +249,11 @@ func tokenHandler(sessions *sessionStore) http.HandlerFunc {
 			}
 			c := intra.New(clientID, clientSecret)
 			if err := c.Validate(); err != nil {
-				log.Printf("credential validation failed for client %q: %v", clientID, err)
+				log.Printf("token: invalid credentials for %s (authorization_code): %v", clientID, err)
 				oauthError(w, "invalid_client", http.StatusUnauthorized)
 				return
 			}
+			log.Printf("token: session created for %s (authorization_code)", clientID)
 			writeToken(w, sessions.create(c))
 
 		case "client_credentials":
@@ -239,6 +267,7 @@ func tokenHandler(sessions *sessionStore) http.HandlerFunc {
 				oauthError(w, "invalid_client", http.StatusUnauthorized)
 				return
 			}
+			log.Printf("token: session created for %s (client_credentials)", clientID)
 			writeToken(w, sessions.create(c))
 
 		default:
@@ -253,11 +282,13 @@ func requireAuth(sessions *sessionStore, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok || token == "" {
+			log.Printf("mcp: unauthorized — no bearer token (%s)", r.RemoteAddr)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		client, ok := sessions.get(token)
 		if !ok {
+			log.Printf("mcp: unauthorized — invalid or expired session (%s)", r.RemoteAddr)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}

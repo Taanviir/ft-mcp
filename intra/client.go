@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -47,6 +48,7 @@ func (c *Client) ensureToken() error {
 		return nil
 	}
 
+	log.Printf("intra: fetching 42 API token for %s", c.clientID)
 	body := url.Values{
 		"grant_type":    {"client_credentials"},
 		"client_id":     {c.clientID},
