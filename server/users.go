@@ -17,7 +17,7 @@ func handleGetUser(_ context.Context, _ *mcp.CallToolRequest, input getUserInput
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[ftUser](data)), nil, nil
 }
 
 type listUsersInput struct {
@@ -35,7 +35,7 @@ func handleListUsers(_ context.Context, _ *mcp.CallToolRequest, input listUsersI
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftUserMin](data)), nil, nil
 }
 
 type userSubInput struct {
@@ -48,7 +48,7 @@ func handleGetUserCursus(_ context.Context, _ *mcp.CallToolRequest, input userSu
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftCursusUser](data)), nil, nil
 }
 
 func handleGetUserProjects(_ context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
@@ -56,7 +56,7 @@ func handleGetUserProjects(_ context.Context, _ *mcp.CallToolRequest, input user
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftProjectUser](data)), nil, nil
 }
 
 func handleGetUserAchievements(_ context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
@@ -64,7 +64,7 @@ func handleGetUserAchievements(_ context.Context, _ *mcp.CallToolRequest, input 
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftAchievement](data)), nil, nil
 }
 
 func registerUsers(s *mcp.Server) {

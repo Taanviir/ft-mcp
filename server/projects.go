@@ -17,7 +17,7 @@ func handleListCursus(_ context.Context, _ *mcp.CallToolRequest, input listCursu
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftCursus](data)), nil, nil
 }
 
 type listProjectsInput struct {
@@ -35,7 +35,7 @@ func handleListProjects(_ context.Context, _ *mcp.CallToolRequest, input listPro
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftProject](data)), nil, nil
 }
 
 type searchProjectsInput struct {
@@ -51,17 +51,17 @@ func handleSearchProjects(_ context.Context, _ *mcp.CallToolRequest, input searc
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftProject](data)), nil, nil
 }
 
 type listProjectSubmissionsInput struct {
-	ProjectID     int    `json:"project_id"              jsonschema:"numeric ID of the project (use search_projects to find it)"`
-	CampusID      int    `json:"campus_id,omitempty"     jsonschema:"filter by campus ID (optional)"`
+	ProjectID     int    `json:"project_id"               jsonschema:"numeric ID of the project (use search_projects to find it)"`
+	CampusID      int    `json:"campus_id,omitempty"      jsonschema:"filter by campus ID (optional)"`
 	OnlyValidated bool   `json:"only_validated,omitempty" jsonschema:"if true, return only validated (passed) submissions"`
-	DateFrom      string `json:"date_from,omitempty"     jsonschema:"return submissions marked on or after this date (YYYY-MM-DD)"`
-	DateTo        string `json:"date_to,omitempty"       jsonschema:"return submissions marked on or before this date (YYYY-MM-DD)"`
-	Page          int    `json:"page,omitempty"          jsonschema:"page number, starting at 1"`
-	PerPage       int    `json:"per_page,omitempty"      jsonschema:"results per page, max 100"`
+	DateFrom      string `json:"date_from,omitempty"      jsonschema:"return submissions marked on or after this date (YYYY-MM-DD)"`
+	DateTo        string `json:"date_to,omitempty"        jsonschema:"return submissions marked on or before this date (YYYY-MM-DD)"`
+	Page          int    `json:"page,omitempty"           jsonschema:"page number, starting at 1"`
+	PerPage       int    `json:"per_page,omitempty"       jsonschema:"results per page, max 100"`
 }
 
 func handleListProjectSubmissions(_ context.Context, _ *mcp.CallToolRequest, input listProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
@@ -80,7 +80,7 @@ func handleListProjectSubmissions(_ context.Context, _ *mcp.CallToolRequest, inp
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftProjectUser](data)), nil, nil
 }
 
 type listEventsInput struct {
@@ -98,7 +98,7 @@ func handleListEvents(_ context.Context, _ *mcp.CallToolRequest, input listEvent
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftEvent](data)), nil, nil
 }
 
 func registerProjects(s *mcp.Server) {

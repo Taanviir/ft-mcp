@@ -17,7 +17,7 @@ func handleListCampus(_ context.Context, _ *mcp.CallToolRequest, input listCampu
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftCampusFull](data)), nil, nil
 }
 
 type campusUsersInput struct {
@@ -31,7 +31,7 @@ func handleGetCampusUsers(_ context.Context, _ *mcp.CallToolRequest, input campu
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftUserMin](data)), nil, nil
 }
 
 type locationsInput struct {
@@ -49,7 +49,7 @@ func handleGetLocations(_ context.Context, _ *mcp.CallToolRequest, input locatio
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(data), nil, nil
+	return textResult(filterJSON[[]ftLocation](data)), nil, nil
 }
 
 func registerCampus(s *mcp.Server) {

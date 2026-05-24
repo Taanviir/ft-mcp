@@ -12,6 +12,8 @@ func RegisterAll(s *mcp.Server, c *intra.Client) {
 	registerUsers(s)
 	registerCampus(s)
 	registerProjects(s)
+	registerResources(s)
+	registerPrompts(s)
 }
 
 func errorResult(err error) *mcp.CallToolResult {
