@@ -2,7 +2,9 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -47,7 +49,7 @@ func handleListProjects(ctx context.Context, _ *mcp.CallToolRequest, input listP
 }
 
 type searchProjectsInput struct {
-	Name    string `json:"name"               jsonschema:"project name to search for (e.g. ft_transcendence)"`
+	Name    string `json:"name"               jsonschema:"partial or full project name to search for (e.g. transcendence, ft_printf)"`
 	Page    int    `json:"page,omitempty"     jsonschema:"page number, starting at 1"`
 	PerPage int    `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
@@ -58,7 +60,7 @@ func handleSearchProjects(ctx context.Context, _ *mcp.CallToolRequest, input sea
 		return errorResult(err), nil, nil
 	}
 	params := paginationParams(input.Page, input.PerPage)
-	params.Set("filter[name]", input.Name)
+	params.Set("search[name]", input.Name)
 	data, err := client.Get("/projects", params)
 	if err != nil {
 		return errorResult(err), nil, nil
@@ -66,14 +68,34 @@ func handleSearchProjects(ctx context.Context, _ *mcp.CallToolRequest, input sea
 	return textResult(filterJSON[[]ftProject](data)), nil, nil
 }
 
+type submissionFilters struct {
+	ProjectID int    `json:"project_id"          jsonschema:"numeric ID of the project (use search_projects to find it)"`
+	CampusID  int    `json:"campus_id,omitempty" jsonschema:"filter by campus ID (optional)"`
+	DateFrom  string `json:"date_from,omitempty" jsonschema:"submissions marked on or after this date (YYYY-MM-DD)"`
+	DateTo    string `json:"date_to,omitempty"   jsonschema:"submissions marked on or before this date (YYYY-MM-DD)"`
+}
+
+func submissionParams(f submissionFilters, page, perPage int) url.Values {
+	params := paginationParams(page, perPage)
+	params.Set("filter[project_id]", fmt.Sprintf("%d", f.ProjectID))
+	if f.CampusID > 0 {
+		params.Set("filter[campus_id]", fmt.Sprintf("%d", f.CampusID))
+	}
+	if f.DateFrom != "" || f.DateTo != "" {
+		params.Set("range[marked_at]", f.DateFrom+","+f.DateTo)
+	}
+	return params
+}
+
 type listProjectSubmissionsInput struct {
-	ProjectID     int    `json:"project_id"               jsonschema:"numeric ID of the project (use search_projects to find it)"`
-	CampusID      int    `json:"campus_id,omitempty"      jsonschema:"filter by campus ID (optional)"`
-	OnlyValidated bool   `json:"only_validated,omitempty" jsonschema:"if true, return only validated (passed) submissions"`
-	DateFrom      string `json:"date_from,omitempty"      jsonschema:"return submissions marked on or after this date (YYYY-MM-DD)"`
-	DateTo        string `json:"date_to,omitempty"        jsonschema:"return submissions marked on or before this date (YYYY-MM-DD)"`
-	Page          int    `json:"page,omitempty"           jsonschema:"page number, starting at 1"`
-	PerPage       int    `json:"per_page,omitempty"       jsonschema:"results per page, max 100"`
+	submissionFilters
+	Page    int `json:"page,omitempty"    jsonschema:"page number, starting at 1"`
+	PerPage int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
+}
+
+type submissionsPage struct {
+	Total   *int            `json:"total,omitempty"`
+	Results []ftProjectUser `json:"results"`
 }
 
 func handleListProjectSubmissions(ctx context.Context, _ *mcp.CallToolRequest, input listProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
@@ -81,22 +103,42 @@ func handleListProjectSubmissions(ctx context.Context, _ *mcp.CallToolRequest, i
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	params := paginationParams(input.Page, input.PerPage)
-	params.Set("filter[project_id]", fmt.Sprintf("%d", input.ProjectID))
-	if input.CampusID > 0 {
-		params.Set("filter[campus_id]", fmt.Sprintf("%d", input.CampusID))
-	}
-	if input.OnlyValidated {
-		params.Set("filter[validated?]", "true")
-	}
-	if input.DateFrom != "" || input.DateTo != "" {
-		params.Set("range[marked_at]", input.DateFrom+","+input.DateTo)
-	}
-	data, err := client.Get("/projects_users", params)
+	params := submissionParams(input.submissionFilters, input.Page, input.PerPage)
+	data, total, err := client.GetWithTotal("/projects_users", params)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	return textResult(filterJSON[[]ftProjectUser](data)), nil, nil
+	var results []ftProjectUser
+	if err := json.Unmarshal(data, &results); err != nil {
+		return textResult(data), nil, nil
+	}
+	resp := submissionsPage{Results: results}
+	if total >= 0 {
+		resp.Total = &total
+	}
+	out, err := json.Marshal(resp)
+	if err != nil {
+		return textResult(data), nil, nil
+	}
+	return textResult(out), nil, nil
+}
+
+type countProjectSubmissionsInput struct {
+	submissionFilters
+}
+
+func handleCountProjectSubmissions(ctx context.Context, _ *mcp.CallToolRequest, input countProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	params := submissionParams(input.submissionFilters, 0, 0)
+	total, err := client.Count("/projects_users", params)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	out, _ := json.Marshal(map[string]int{"total": total})
+	return textResult(out), nil, nil
 }
 
 type listEventsInput struct {
@@ -129,21 +171,26 @@ func registerProjects(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_projects",
-		Description: "List projects, optionally filtered to a specific cursus",
+		Description: "List all projects, optionally filtered to a specific cursus",
 	}, handleListProjects)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "search_projects",
-		Description: "Search projects by name to get their numeric ID — use this before list_project_submissions",
+		Description: "Search projects by partial name to find their numeric ID. Supports partial matches (e.g. \"transcendence\" finds ft_transcendence). Use this before list_project_submissions or count_project_submissions.",
 	}, handleSearchProjects)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_project_submissions",
-		Description: "Get all student submissions for a project. Filter by campus, validated status, and date range. Much more efficient than checking users one by one.",
+		Description: "Get student submissions for a project, paginated (up to 100 per page). Response includes a total count so you know how many pages to expect. Each result has a \"validated?\" boolean and \"final_mark\" — filter on those client-side after fetching. Use count_project_submissions first if you only need the total without the records.",
 	}, handleListProjectSubmissions)
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        "count_project_submissions",
+		Description: "Get the total number of submissions for a project matching the given filters — without fetching the records. Use this before paginating list_project_submissions to know the full scope. Note: validated status cannot be pre-filtered; check the \"validated?\" field in results from list_project_submissions.",
+	}, handleCountProjectSubmissions)
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_events",
-		Description: "List upcoming events, optionally filtered by campus",
+		Description: "List events, optionally filtered by campus",
 	}, handleListEvents)
 }

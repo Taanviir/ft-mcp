@@ -217,7 +217,8 @@ For clients that support custom HTTP headers, use the bearer token from [/token]
 | `list_cursus` | List all cursus (curricula) |
 | `list_projects` | List projects, optionally filtered by cursus |
 | `search_projects` | Search projects by name to get their numeric ID |
-| `list_project_submissions` | Get all submissions for a project, filtered by campus, validation status, and date range |
+| `list_project_submissions` | Get all submissions for a project, filtered by campus and date range. Response includes total count. Each result has a `validated?` field for client-side filtering. |
+| `count_project_submissions` | Get the total count of submissions for a project matching given filters — without fetching the records |
 | `list_events` | List events, optionally filtered by campus |
 
 ---

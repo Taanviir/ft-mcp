@@ -34,13 +34,18 @@ func handleAnalyzeStudent(_ context.Context, req *mcp.GetPromptRequest) (*mcp.Ge
 			Content: &mcp.TextContent{Text: fmt.Sprintf(
 				`Please analyze the 42 student with login "%s".
 
-Use the available tools to fetch their data, then provide:
+Call tools sequentially (not in parallel) to avoid hitting the 42 API rate limit:
+1. get_user — already includes level, grade, campus, pool cohort, and cursus info. Sufficient for most profiles; only call get_user_cursus additionally if you need the per-skill breakdown.
+2. get_user_projects — project submissions and scores.
+3. get_user_achievements — badges and achievements.
+
+Then provide:
 1. Basic info (campus, pool cohort, current status)
 2. Academic progress (level, grade, active cursus)
 3. Top skills by level
 4. Completed projects — highlight any perfect or bonus scores
 5. In-progress or searching-group projects
-6. Achievements worth noting
+6. Notable achievements
 7. A brief overall assessment
 
 Be concise and use the data directly — no need to re-fetch anything already shown.`, login),

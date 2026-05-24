@@ -78,14 +78,14 @@ type ftCursus struct {
 }
 
 type ftProjectUser struct {
-	ID        int        `json:"id"`
-	FinalMark *int       `json:"final_mark"`
-	Status    string     `json:"status"`
-	Validated bool       `json:"validated?"`
-	MarkedAt  *string    `json:"marked_at"`
-	Project   ftProject  `json:"project"`
-	User      ftUserMin  `json:"user"`
-	Team      *ftTeam    `json:"team"`
+	ID        int       `json:"id"`
+	FinalMark *int      `json:"final_mark"`
+	Status    string    `json:"status"`
+	Validated bool      `json:"validated?"`
+	MarkedAt  *string   `json:"marked_at"`
+	Project   ftProject `json:"project"`
+	User      ftUserMin `json:"user"`
+	Team      *ftTeam   `json:"team"`
 }
 
 type ftProject struct {

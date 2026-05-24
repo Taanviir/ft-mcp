@@ -90,27 +90,27 @@ func handleGetUserAchievements(ctx context.Context, _ *mcp.CallToolRequest, inpu
 func registerUsers(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user",
-		Description: "Get a 42 user profile by login name or numeric ID",
+		Description: "Get a 42 user's full profile by login or numeric ID. Already includes level, grade, campus, pool cohort, correction points, wallet, and cursus info — sufficient for most profile queries. Only call get_user_cursus additionally if you need the per-skill breakdown.",
 	}, handleGetUser)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_users",
-		Description: "List 42 users, optionally filtered by campus ID",
+		Description: "List 42 users, optionally filtered by campus ID. Returns minimal info (id, login, displayname, location).",
 	}, handleListUsers)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user_cursus",
-		Description: "Get a user's cursus information including level, grade, and skills",
+		Description: "Get a user's cursus history with per-skill levels. Note: get_user already returns level, grade, and basic cursus data — only call this when you specifically need the skill breakdown.",
 	}, handleGetUserCursus)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user_projects",
-		Description: "Get a user's project submissions and their status (finished, in_progress, etc.)",
+		Description: "Get a user's project submissions with status and scores. Results are paginated — use the page parameter if needed.",
 	}, handleGetUserProjects)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user_achievements",
-		Description: "Get a user's achievements (badges) on the 42 platform",
+		Description: "Get a user's achievements (badges) on the 42 platform.",
 	}, handleGetUserAchievements)
 }
 
