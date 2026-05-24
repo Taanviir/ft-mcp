@@ -4,29 +4,11 @@ An MCP server for the [42 API](https://api.intra.42.fr/apidoc), built with the o
 
 Supports both **stdio** (for local use with Claude Code) and **HTTP** (for remote use with Claude.ai, ChatGPT, etc.).
 
-## Tools
-
-| Tool | Description |
-|------|-------------|
-| `get_user` | Get a user profile by login or numeric ID |
-| `list_users` | List users, optionally filtered by campus |
-| `get_user_cursus` | Get a user's cursus info (level, grade, skills) |
-| `get_user_projects` | Get a user's project submissions and status |
-| `get_user_achievements` | Get a user's achievements |
-| `list_campus` | List all 42 campuses |
-| `get_campus_users` | List users at a specific campus |
-| `get_locations` | Get active locations (who's logged into a computer) |
-| `list_cursus` | List all cursus (curricula) |
-| `list_projects` | List projects, optionally filtered by cursus |
-| `search_projects` | Search projects by name to get their numeric ID |
-| `list_project_submissions` | Get all submissions for a project, filtered by campus, validation status, and date range |
-| `list_events` | List events, optionally filtered by campus |
-
 ## Setup
 
 ### 1. Get API credentials
 
-Create an application at https://profile.intra.42.fr/oauth/applications/new.  
+Create an application at https://profile.intra.42.fr/oauth/applications/new.
 You'll need the **Client UID** and **Client Secret**.
 
 ### 2. Configure credentials
@@ -81,6 +63,24 @@ To test locally with MCP Inspector:
 ```bash
 npx @modelcontextprotocol/inspector http://localhost:8080/mcp
 ```
+
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_user` | Get a user profile by login or numeric ID |
+| `list_users` | List users, optionally filtered by campus |
+| `get_user_cursus` | Get a user's cursus info (level, grade, skills) |
+| `get_user_projects` | Get a user's project submissions and status |
+| `get_user_achievements` | Get a user's achievements |
+| `list_campus` | List all 42 campuses |
+| `get_campus_users` | List users at a specific campus |
+| `get_locations` | Get active locations (who's logged into a computer) |
+| `list_cursus` | List all cursus (curricula) |
+| `list_projects` | List projects, optionally filtered by cursus |
+| `search_projects` | Search projects by name to get their numeric ID |
+| `list_project_submissions` | Get all submissions for a project, filtered by campus, validation status, and date range |
+| `list_events` | List events, optionally filtered by campus |
 
 ## API docs
 
