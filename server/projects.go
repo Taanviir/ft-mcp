@@ -12,8 +12,12 @@ type listCursusInput struct {
 	PerPage int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleListCursus(_ context.Context, _ *mcp.CallToolRequest, input listCursusInput) (*mcp.CallToolResult, any, error) {
-	data, err := api.Get("/cursus", paginationParams(input.Page, input.PerPage))
+func handleListCursus(ctx context.Context, _ *mcp.CallToolRequest, input listCursusInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	data, err := client.Get("/cursus", paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -26,12 +30,16 @@ type listProjectsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleListProjects(_ context.Context, _ *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, any, error) {
+func handleListProjects(ctx context.Context, _ *mcp.CallToolRequest, input listProjectsInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
 	path := "/projects"
 	if input.CursusID > 0 {
 		path = fmt.Sprintf("/cursus/%d/projects", input.CursusID)
 	}
-	data, err := api.Get(path, paginationParams(input.Page, input.PerPage))
+	data, err := client.Get(path, paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -44,10 +52,14 @@ type searchProjectsInput struct {
 	PerPage int    `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleSearchProjects(_ context.Context, _ *mcp.CallToolRequest, input searchProjectsInput) (*mcp.CallToolResult, any, error) {
+func handleSearchProjects(ctx context.Context, _ *mcp.CallToolRequest, input searchProjectsInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
 	params := paginationParams(input.Page, input.PerPage)
 	params.Set("filter[name]", input.Name)
-	data, err := api.Get("/projects", params)
+	data, err := client.Get("/projects", params)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -64,7 +76,11 @@ type listProjectSubmissionsInput struct {
 	PerPage       int    `json:"per_page,omitempty"       jsonschema:"results per page, max 100"`
 }
 
-func handleListProjectSubmissions(_ context.Context, _ *mcp.CallToolRequest, input listProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
+func handleListProjectSubmissions(ctx context.Context, _ *mcp.CallToolRequest, input listProjectSubmissionsInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
 	params := paginationParams(input.Page, input.PerPage)
 	params.Set("filter[project_id]", fmt.Sprintf("%d", input.ProjectID))
 	if input.CampusID > 0 {
@@ -76,7 +92,7 @@ func handleListProjectSubmissions(_ context.Context, _ *mcp.CallToolRequest, inp
 	if input.DateFrom != "" || input.DateTo != "" {
 		params.Set("range[marked_at]", input.DateFrom+","+input.DateTo)
 	}
-	data, err := api.Get("/projects_users", params)
+	data, err := client.Get("/projects_users", params)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -89,12 +105,16 @@ type listEventsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleListEvents(_ context.Context, _ *mcp.CallToolRequest, input listEventsInput) (*mcp.CallToolResult, any, error) {
+func handleListEvents(ctx context.Context, _ *mcp.CallToolRequest, input listEventsInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
 	path := "/events"
 	if input.CampusID > 0 {
 		path = fmt.Sprintf("/campus/%d/events", input.CampusID)
 	}
-	data, err := api.Get(path, paginationParams(input.Page, input.PerPage))
+	data, err := client.Get(path, paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}

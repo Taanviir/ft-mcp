@@ -70,15 +70,27 @@ npx @modelcontextprotocol/inspector http://localhost:8080/mcp
 
 1. Push this repo to GitHub
 2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo
-3. Set environment variables in Railway dashboard:
-   - `FT_CLIENT_ID` — your 42 Client UID
-   - `FT_CLIENT_SECRET` — your 42 Client Secret
-   - `MCP_SECRET` — a strong random string (used as the OAuth client secret in Claude.ai)
-4. Railway auto-detects the Dockerfile and deploys. Get your public URL from Settings → Networking → Generate Domain.
+3. No environment variables required — Railway auto-detects the Dockerfile and deploys
+4. Get your public URL from Settings → Networking → Generate Domain
 
 To connect in Claude.ai, go to Settings → Connectors → Add custom connector and enter:
 - **MCP URL:** `https://your-app.up.railway.app/mcp`
-- **OAuth Client Secret:** the value of `MCP_SECRET`
+- **OAuth Client ID:** your 42 Client UID (from profile.intra.42.fr/oauth/applications)
+- **OAuth Client Secret:** your 42 Client Secret
+
+Each user authenticates with their own 42 API credentials. The server validates them against the 42 API and issues a 24-hour session token — your credentials are never stored beyond the session.
+
+### Other HTTP clients (Claude Code, curl, etc.)
+
+Get a session token once using the `client_credentials` grant:
+
+```bash
+curl -s -X POST https://your-app.up.railway.app/token \
+  -d "grant_type=client_credentials&client_id=YOUR_42_UID&client_secret=YOUR_42_SECRET" \
+  | jq -r .access_token
+```
+
+Then use the token as a Bearer header in your MCP client config.
 
 ## Tools
 

@@ -23,13 +23,16 @@ func registerResources(s *mcp.Server) {
 	}, handleCampusResource)
 }
 
-func handleUserResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	// URI format: 42://users/{login}
+func handleUserResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	login := strings.TrimPrefix(req.Params.URI, "42://users/")
 	if login == "" {
 		return nil, mcp.ResourceNotFoundError(req.Params.URI)
 	}
-	data, err := api.Get("/users/"+login, nil)
+	data, err := client.Get("/users/"+login, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -42,13 +45,16 @@ func handleUserResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.R
 	}, nil
 }
 
-func handleCampusResource(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-	// URI format: 42://campus/{campus_id}
+func handleCampusResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	id := strings.TrimPrefix(req.Params.URI, "42://campus/")
 	if id == "" {
 		return nil, mcp.ResourceNotFoundError(req.Params.URI)
 	}
-	data, err := api.Get("/campus/"+id, nil)
+	data, err := client.Get("/campus/"+id, nil)
 	if err != nil {
 		return nil, err
 	}

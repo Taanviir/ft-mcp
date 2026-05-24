@@ -12,8 +12,12 @@ type listCampusInput struct {
 	PerPage int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleListCampus(_ context.Context, _ *mcp.CallToolRequest, input listCampusInput) (*mcp.CallToolResult, any, error) {
-	data, err := api.Get("/campus", paginationParams(input.Page, input.PerPage))
+func handleListCampus(ctx context.Context, _ *mcp.CallToolRequest, input listCampusInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	data, err := client.Get("/campus", paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -26,8 +30,12 @@ type campusUsersInput struct {
 	PerPage  int `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
-func handleGetCampusUsers(_ context.Context, _ *mcp.CallToolRequest, input campusUsersInput) (*mcp.CallToolResult, any, error) {
-	data, err := api.Get(fmt.Sprintf("/campus/%d/users", input.CampusID), paginationParams(input.Page, input.PerPage))
+func handleGetCampusUsers(ctx context.Context, _ *mcp.CallToolRequest, input campusUsersInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	data, err := client.Get(fmt.Sprintf("/campus/%d/users", input.CampusID), paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -40,12 +48,16 @@ type locationsInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleGetLocations(_ context.Context, _ *mcp.CallToolRequest, input locationsInput) (*mcp.CallToolResult, any, error) {
+func handleGetLocations(ctx context.Context, _ *mcp.CallToolRequest, input locationsInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
 	path := "/locations"
 	if input.CampusID > 0 {
 		path = fmt.Sprintf("/campus/%d/locations", input.CampusID)
 	}
-	data, err := api.Get(path, paginationParams(input.Page, input.PerPage))
+	data, err := client.Get(path, paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}

@@ -12,8 +12,12 @@ type getUserInput struct {
 	LoginOrID string `json:"login_or_id" jsonschema:"login name or numeric ID of the 42 user"`
 }
 
-func handleGetUser(_ context.Context, _ *mcp.CallToolRequest, input getUserInput) (*mcp.CallToolResult, any, error) {
-	data, err := api.Get("/users/"+input.LoginOrID, nil)
+func handleGetUser(ctx context.Context, _ *mcp.CallToolRequest, input getUserInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	data, err := client.Get("/users/"+input.LoginOrID, nil)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -26,12 +30,16 @@ type listUsersInput struct {
 	PerPage  int `json:"per_page,omitempty"  jsonschema:"results per page, max 100"`
 }
 
-func handleListUsers(_ context.Context, _ *mcp.CallToolRequest, input listUsersInput) (*mcp.CallToolResult, any, error) {
+func handleListUsers(ctx context.Context, _ *mcp.CallToolRequest, input listUsersInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
 	params := paginationParams(input.Page, input.PerPage)
 	if input.CampusID > 0 {
 		params.Set("filter[campus_id]", fmt.Sprintf("%d", input.CampusID))
 	}
-	data, err := api.Get("/users", params)
+	data, err := client.Get("/users", params)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -39,28 +47,40 @@ func handleListUsers(_ context.Context, _ *mcp.CallToolRequest, input listUsersI
 }
 
 type userSubInput struct {
-	LoginOrID string `json:"login_or_id" jsonschema:"login name or numeric ID of the 42 user"`
+	LoginOrID string `json:"login_or_id"    jsonschema:"login name or numeric ID of the 42 user"`
 	Page      int    `json:"page,omitempty" jsonschema:"page number, starting at 1"`
 }
 
-func handleGetUserCursus(_ context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
-	data, err := api.Get("/users/"+input.LoginOrID+"/cursus_users", paginationParams(input.Page, 0))
+func handleGetUserCursus(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	data, err := client.Get("/users/"+input.LoginOrID+"/cursus_users", paginationParams(input.Page, 0))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
 	return textResult(filterJSON[[]ftCursusUser](data)), nil, nil
 }
 
-func handleGetUserProjects(_ context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
-	data, err := api.Get("/users/"+input.LoginOrID+"/projects_users", paginationParams(input.Page, 0))
+func handleGetUserProjects(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	data, err := client.Get("/users/"+input.LoginOrID+"/projects_users", paginationParams(input.Page, 0))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
 	return textResult(filterJSON[[]ftProjectUser](data)), nil, nil
 }
 
-func handleGetUserAchievements(_ context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
-	data, err := api.Get("/users/"+input.LoginOrID+"/achievements", paginationParams(input.Page, 0))
+func handleGetUserAchievements(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return errorResult(err), nil, nil
+	}
+	data, err := client.Get("/users/"+input.LoginOrID+"/achievements", paginationParams(input.Page, 0))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}

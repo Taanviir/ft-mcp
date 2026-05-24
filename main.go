@@ -36,23 +36,19 @@ func main() {
 
 	godotenv.Load()
 
-	clientID := os.Getenv("FT_CLIENT_ID")
-	clientSecret := os.Getenv("FT_CLIENT_SECRET")
-	if clientID == "" || clientSecret == "" {
-		log.Fatal("FT_CLIENT_ID and FT_CLIENT_SECRET must be set")
-	}
-
-	apiClient := intra.New(clientID, clientSecret)
-
 	s := mcp.NewServer(&mcp.Implementation{Name: "42-api", Version: "1.0.0"}, nil)
-	tools.RegisterAll(s, apiClient)
 
 	switch *transport {
 	case "http":
-		mcpSecret := os.Getenv("MCP_SECRET")
-		if mcpSecret == "" {
-			log.Println("warning: MCP_SECRET not set, server is unauthenticated")
-		}
+		tools.RegisterAll(s, nil)
+
+		sessions := newSessionStore()
+		go func() {
+			ticker := time.NewTicker(time.Hour)
+			for range ticker.C {
+				sessions.cleanup()
+			}
+		}()
 
 		mcpHandler := mcp.NewStreamableHTTPHandler(
 			func(*http.Request) *mcp.Server { return s },
@@ -62,17 +58,72 @@ func main() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/.well-known/oauth-authorization-server", oauthMetadata)
 		mux.HandleFunc("/authorize", authorizeHandler)
-		mux.HandleFunc("/token", tokenHandler(mcpSecret))
-		mux.Handle("/", requireSecret(mcpSecret, http.StripPrefix("/mcp", mcpHandler)))
+		mux.HandleFunc("/token", tokenHandler(sessions))
+		mux.Handle("/", requireAuth(sessions, http.StripPrefix("/mcp", mcpHandler)))
 
 		addr := ":" + *port
 		log.Printf("42 MCP server listening on %s/mcp", addr)
 		if err := http.ListenAndServe(addr, mux); err != nil {
 			log.Fatal(err)
 		}
+
 	default:
+		clientID := os.Getenv("FT_CLIENT_ID")
+		clientSecret := os.Getenv("FT_CLIENT_SECRET")
+		if clientID == "" || clientSecret == "" {
+			log.Fatal("FT_CLIENT_ID and FT_CLIENT_SECRET must be set for stdio transport")
+		}
+		tools.RegisterAll(s, intra.New(clientID, clientSecret))
 		if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 			log.Fatal(err)
+		}
+	}
+}
+
+// --- Session store ---
+
+type session struct {
+	client    *intra.Client
+	expiresAt time.Time
+}
+
+type sessionStore struct {
+	mu   sync.Mutex
+	data map[string]session
+}
+
+func newSessionStore() *sessionStore {
+	return &sessionStore{data: make(map[string]session)}
+}
+
+func (s *sessionStore) create(client *intra.Client) string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	token := base64.RawURLEncoding.EncodeToString(b)
+	s.mu.Lock()
+	s.data[token] = session{client: client, expiresAt: time.Now().Add(24 * time.Hour)}
+	s.mu.Unlock()
+	return token
+}
+
+func (s *sessionStore) get(token string) (*intra.Client, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sess, ok := s.data[token]
+	if !ok || time.Now().After(sess.expiresAt) {
+		delete(s.data, token)
+		return nil, false
+	}
+	return sess.client, true
+}
+
+func (s *sessionStore) cleanup() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	for token, sess := range s.data {
+		if now.After(sess.expiresAt) {
+			delete(s.data, token)
 		}
 	}
 }
@@ -115,7 +166,6 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate a one-time auth code
 	b := make([]byte, 32)
 	rand.Read(b)
 	code := base64.RawURLEncoding.EncodeToString(b)
@@ -124,7 +174,6 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	codes[code] = codeEntry{challenge: challenge, expiresAt: time.Now().Add(5 * time.Minute)}
 	codeMu.Unlock()
 
-	// Redirect back to client with code
 	callback, err := url.Parse(redirectURI)
 	if err != nil {
 		http.Error(w, "invalid redirect_uri", http.StatusBadRequest)
@@ -141,7 +190,7 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 
 // --- Token endpoint ---
 
-func tokenHandler(secret string) http.HandlerFunc {
+func tokenHandler(sessions *sessionStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -149,16 +198,12 @@ func tokenHandler(secret string) http.HandlerFunc {
 		}
 		r.ParseForm()
 
+		clientID, clientSecret := extractCreds(r)
+
 		switch r.FormValue("grant_type") {
 		case "authorization_code":
 			code := r.FormValue("code")
 			verifier := r.FormValue("code_verifier")
-			clientSecret := formOrBasicSecret(r)
-
-			if secret != "" && clientSecret != secret {
-				oauthError(w, "invalid_client", http.StatusUnauthorized)
-				return
-			}
 
 			codeMu.Lock()
 			entry, ok := codes[code]
@@ -171,15 +216,30 @@ func tokenHandler(secret string) http.HandlerFunc {
 				oauthError(w, "invalid_grant", http.StatusBadRequest)
 				return
 			}
-			writeToken(w, secret)
-
-		case "client_credentials":
-			clientSecret := formOrBasicSecret(r)
-			if secret != "" && clientSecret != secret {
+			if clientID == "" || clientSecret == "" {
 				oauthError(w, "invalid_client", http.StatusUnauthorized)
 				return
 			}
-			writeToken(w, secret)
+			c := intra.New(clientID, clientSecret)
+			if err := c.Validate(); err != nil {
+				log.Printf("credential validation failed for client %q: %v", clientID, err)
+				oauthError(w, "invalid_client", http.StatusUnauthorized)
+				return
+			}
+			writeToken(w, sessions.create(c))
+
+		case "client_credentials":
+			if clientID == "" || clientSecret == "" {
+				oauthError(w, "invalid_client", http.StatusUnauthorized)
+				return
+			}
+			c := intra.New(clientID, clientSecret)
+			if err := c.Validate(); err != nil {
+				log.Printf("credential validation failed for client %q: %v", clientID, err)
+				oauthError(w, "invalid_client", http.StatusUnauthorized)
+				return
+			}
+			writeToken(w, sessions.create(c))
 
 		default:
 			oauthError(w, "unsupported_grant_type", http.StatusBadRequest)
@@ -189,43 +249,42 @@ func tokenHandler(secret string) http.HandlerFunc {
 
 // --- MCP auth middleware ---
 
-func requireSecret(secret string, next http.Handler) http.Handler {
+func requireAuth(sessions *sessionStore, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if secret == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok || token != secret {
+		if !ok || token == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		next.ServeHTTP(w, r)
+		client, ok := sessions.get(token)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(tools.WithClient(r.Context(), client)))
 	})
 }
 
 // --- Helpers ---
+
+func extractCreds(r *http.Request) (clientID, clientSecret string) {
+	clientID = r.FormValue("client_id")
+	clientSecret = r.FormValue("client_secret")
+	if clientID == "" {
+		clientID, clientSecret, _ = r.BasicAuth()
+	}
+	return
+}
 
 func verifyPKCE(verifier, challenge string) bool {
 	h := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(h[:]) == challenge
 }
 
-func formOrBasicSecret(r *http.Request) string {
-	if s := r.FormValue("client_secret"); s != "" {
-		return s
-	}
-	_, s, ok := r.BasicAuth()
-	if ok {
-		return s
-	}
-	return ""
-}
-
-func writeToken(w http.ResponseWriter, secret string) {
+func writeToken(w http.ResponseWriter, token string) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"access_token": secret,
+		"access_token": token,
 		"token_type":   "Bearer",
 		"expires_in":   86400,
 	})

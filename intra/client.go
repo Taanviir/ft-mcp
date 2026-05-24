@@ -76,6 +76,11 @@ func (c *Client) ensureToken() error {
 	return nil
 }
 
+// Validate verifies that the credentials can obtain a 42 API token.
+func (c *Client) Validate() error {
+	return c.ensureToken()
+}
+
 // Get fetches path (e.g. "/users/login") with optional query params.
 func (c *Client) Get(path string, params url.Values) ([]byte, error) {
 	if err := c.ensureToken(); err != nil {
