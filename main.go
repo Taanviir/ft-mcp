@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -41,13 +42,17 @@ func main() {
 
 	switch *transport {
 	case "http":
+		secret := os.Getenv("MCP_SECRET")
+		if secret == "" {
+			log.Println("warning: MCP_SECRET not set, server is unauthenticated")
+		}
 		handler := mcp.NewStreamableHTTPHandler(
 			func(*http.Request) *mcp.Server { return s },
 			&mcp.StreamableHTTPOptions{Stateless: true},
 		)
 		addr := ":" + *port
 		log.Printf("42 MCP server listening on %s/mcp", addr)
-		if err := http.ListenAndServe(addr, http.StripPrefix("/mcp", handler)); err != nil {
+		if err := http.ListenAndServe(addr, requireSecret(secret, http.StripPrefix("/mcp", handler))); err != nil {
 			log.Fatal(err)
 		}
 	default:
@@ -55,4 +60,19 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+}
+
+func requireSecret(secret string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if secret == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if !ok || token != secret {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
