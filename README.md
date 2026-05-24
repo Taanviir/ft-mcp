@@ -142,6 +142,46 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 </details>
 
 <details>
+<summary>OpenCode</summary>
+
+Add to your OpenCode configuration file. See [OpenCode MCP docs](https://opencode.ai/docs/mcp-servers) for more info.
+
+**Remote (recommended):**
+```json
+"mcp": {
+  "ft-mcp": {
+    "type": "remote",
+    "url": "https://ft-mcp.tanvirahmedanas.com/mcp",
+    "headers": {
+      "Authorization": "Bearer YOUR_TOKEN"
+    },
+    "enabled": true
+  }
+}
+```
+
+Get your token from [ft-mcp.tanvirahmedanas.com/token](https://ft-mcp.tanvirahmedanas.com/token).
+
+**Local (stdio):** build the binary first, then:
+```json
+{
+  "mcp": {
+    "ft-mcp": {
+      "type": "local",
+      "command": ["/path/to/ft-mcp"],
+      "environment": {
+        "FT_CLIENT_ID": "your_client_uid",
+        "FT_CLIENT_SECRET": "your_client_secret"
+      },
+      "enabled": true
+    }
+  }
+}
+```
+
+</details>
+
+<details>
 <summary>Other clients</summary>
 
 Any MCP client that supports stdio can connect via [mcp-remote](https://www.npmjs.com/package/mcp-remote):

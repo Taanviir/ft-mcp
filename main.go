@@ -35,6 +35,7 @@ func main() {
 		}
 	}
 
+	log.SetOutput(os.Stdout)
 	godotenv.Load()
 
 	s := mcp.NewServer(&mcp.Implementation{Name: "42-api", Version: "1.0.0"}, nil)
@@ -58,6 +59,7 @@ func main() {
 		)
 
 		mux := http.NewServeMux()
+		mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 		mux.HandleFunc("/.well-known/oauth-authorization-server", oauthMetadata)
 		mux.HandleFunc("/authorize", authorizeHandler)
 		mux.HandleFunc("GET /token", func(w http.ResponseWriter, r *http.Request) { tokenui.Serve(w, "", "") })
@@ -312,13 +314,11 @@ func requireAuth(sessions *sessionStore, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok || token == "" {
-			log.Printf("mcp: unauthorized — no bearer token (%s)", r.RemoteAddr)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		client, ok := sessions.get(token)
 		if !ok {
-			log.Printf("mcp: unauthorized — invalid or expired session (%s)", r.RemoteAddr)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
