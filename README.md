@@ -18,6 +18,8 @@ Supports both **stdio** (for local use with Claude Code) and **HTTP** (for remot
 | `get_locations` | Get active locations (who's logged into a computer) |
 | `list_cursus` | List all cursus (curricula) |
 | `list_projects` | List projects, optionally filtered by cursus |
+| `search_projects` | Search projects by name to get their numeric ID |
+| `list_project_submissions` | Get all submissions for a project, filtered by campus, validation status, and date range |
 | `list_events` | List events, optionally filtered by campus |
 
 ## Setup
