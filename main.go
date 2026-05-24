@@ -227,6 +227,7 @@ func oauthMetadata(w http.ResponseWriter, r *http.Request) {
 		"issuer":                                base,
 		"authorization_endpoint":                base + "/authorize",
 		"token_endpoint":                        base + "/token",
+		"response_types_supported":              []string{"code"},
 		"grant_types_supported":                 []string{"authorization_code", "client_credentials"},
 		"code_challenge_methods_supported":      []string{"S256"},
 		"token_endpoint_auth_methods_supported": []string{"client_secret_post", "client_secret_basic"},
