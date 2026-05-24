@@ -52,6 +52,8 @@ Add to Claude Code's MCP config (`~/.claude/settings.json`):
 
 ### HTTP (Claude.ai, ChatGPT, etc.)
 
+Run locally:
+
 ```bash
 ./ft-mcp --transport http --port 8080
 ```
@@ -63,6 +65,20 @@ To test locally with MCP Inspector:
 ```bash
 npx @modelcontextprotocol/inspector http://localhost:8080/mcp
 ```
+
+### Deploy to Railway
+
+1. Push this repo to GitHub
+2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo
+3. Set environment variables in Railway dashboard:
+   - `FT_CLIENT_ID` — your 42 Client UID
+   - `FT_CLIENT_SECRET` — your 42 Client Secret
+   - `MCP_SECRET` — a strong random string (used as the OAuth client secret in Claude.ai)
+4. Railway auto-detects the Dockerfile and deploys. Get your public URL from Settings → Networking → Generate Domain.
+
+To connect in Claude.ai, go to Settings → Connectors → Add custom connector and enter:
+- **MCP URL:** `https://your-app.up.railway.app/mcp`
+- **OAuth Client Secret:** the value of `MCP_SECRET`
 
 ## Tools
 
