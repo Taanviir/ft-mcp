@@ -48,6 +48,7 @@ func main() {
 			ticker := time.NewTicker(time.Hour)
 			for range ticker.C {
 				sessions.cleanup()
+				cleanupCodes()
 			}
 		}()
 
@@ -165,6 +166,31 @@ var (
 	codes  = map[string]codeEntry{}
 )
 
+func cleanupCodes() {
+	codeMu.Lock()
+	now := time.Now()
+	n := 0
+	for code, entry := range codes {
+		if now.After(entry.expiresAt) {
+			delete(codes, code)
+			n++
+		}
+	}
+	codeMu.Unlock()
+	if n > 0 {
+		log.Printf("oauth: removed %d expired codes", n)
+	}
+}
+
+func validRedirectURI(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	return host == "localhost" || host == "127.0.0.1" || u.Scheme == "https"
+}
+
 func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	redirectURI := q.Get("redirect_uri")
@@ -173,6 +199,10 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 
 	if redirectURI == "" || challenge == "" {
 		http.Error(w, "missing redirect_uri or code_challenge", http.StatusBadRequest)
+		return
+	}
+	if !validRedirectURI(redirectURI) {
+		http.Error(w, "redirect_uri must be localhost or https", http.StatusBadRequest)
 		return
 	}
 
