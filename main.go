@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
@@ -42,23 +43,79 @@ func main() {
 
 	switch *transport {
 	case "http":
-		secret := os.Getenv("MCP_SECRET")
-		if secret == "" {
+		mcpSecret := os.Getenv("MCP_SECRET")
+		if mcpSecret == "" {
 			log.Println("warning: MCP_SECRET not set, server is unauthenticated")
 		}
-		handler := mcp.NewStreamableHTTPHandler(
+
+		mcpHandler := mcp.NewStreamableHTTPHandler(
 			func(*http.Request) *mcp.Server { return s },
 			&mcp.StreamableHTTPOptions{Stateless: true},
 		)
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("/.well-known/oauth-authorization-server", oauthMetadata)
+		mux.HandleFunc("/token", tokenHandler(mcpSecret))
+		mux.Handle("/", requireSecret(mcpSecret, http.StripPrefix("/mcp", mcpHandler)))
+
 		addr := ":" + *port
 		log.Printf("42 MCP server listening on %s/mcp", addr)
-		if err := http.ListenAndServe(addr, requireSecret(secret, http.StripPrefix("/mcp", handler))); err != nil {
+		if err := http.ListenAndServe(addr, mux); err != nil {
 			log.Fatal(err)
 		}
 	default:
 		if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 			log.Fatal(err)
 		}
+	}
+}
+
+func oauthMetadata(w http.ResponseWriter, r *http.Request) {
+	scheme := "https"
+	if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
+		scheme = "http"
+	}
+	base := scheme + "://" + r.Host
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"issuer":                                base,
+		"token_endpoint":                        base + "/token",
+		"grant_types_supported":                 []string{"client_credentials"},
+		"token_endpoint_auth_methods_supported": []string{"client_secret_post", "client_secret_basic"},
+	})
+}
+
+func tokenHandler(secret string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		r.ParseForm()
+
+		clientSecret := r.FormValue("client_secret")
+
+		// also support Basic auth
+		if clientSecret == "" {
+			_, cs, ok := r.BasicAuth()
+			if ok {
+				clientSecret = cs
+			}
+		}
+
+		if r.FormValue("grant_type") != "client_credentials" || clientSecret != secret {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]any{"error": "invalid_client"})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"access_token": secret,
+			"token_type":   "Bearer",
+			"expires_in":   86400,
+		})
 	}
 }
 
