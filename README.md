@@ -31,7 +31,36 @@ Most clients can run the server with `npx`:
 
 The npm package installs the matching native `ft-mcp` binary for your OS from GitHub Releases.
 
-## Claude Desktop
+## Connecting clients
+
+<details>
+<summary>Claude Code</summary>
+
+```bash
+claude mcp add ft-mcp \
+  --env FT_CLIENT_ID="your_client_uid" \
+  --env FT_CLIENT_SECRET="your_client_secret" \
+  -- npx -y ft-mcp
+```
+
+</details>
+
+<details>
+<summary>Codex App</summary>
+
+Add the server with the Codex CLI:
+
+```bash
+codex mcp add ft-mcp \
+  --env FT_CLIENT_ID="your_client_uid" \
+  --env FT_CLIENT_SECRET="your_client_secret" \
+  -- npx -y ft-mcp
+```
+
+</details>
+
+<details>
+<summary>Claude Desktop</summary>
 
 Edit `claude_desktop_config.json`:
 
@@ -50,16 +79,119 @@ Edit `claude_desktop_config.json`:
 }
 ```
 
-## Codex App
+</details>
 
-Add the server with the Codex CLI:
+<details>
+<summary>Cursor</summary>
 
-```bash
-codex mcp add ft-mcp \
-  --env FT_CLIENT_ID="your_client_uid" \
-  --env FT_CLIENT_SECRET="your_client_secret" \
-  -- npx -y ft-mcp
+Add to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ft-mcp": {
+      "command": "npx",
+      "args": ["-y", "ft-mcp"],
+      "env": {
+        "FT_CLIENT_ID": "your_client_uid",
+        "FT_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
 ```
+
+</details>
+
+<details>
+<summary>VS Code</summary>
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "ft-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "ft-mcp"],
+      "env": {
+        "FT_CLIENT_ID": "your_client_uid",
+        "FT_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>Windsurf</summary>
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "ft-mcp": {
+      "command": "npx",
+      "args": ["-y", "ft-mcp"],
+      "env": {
+        "FT_CLIENT_ID": "your_client_uid",
+        "FT_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>OpenCode</summary>
+
+Add to your OpenCode configuration file. See [OpenCode MCP docs](https://opencode.ai/docs/mcp-servers) for more info.
+
+```json
+{
+  "mcp": {
+    "ft-mcp": {
+      "type": "local",
+      "command": ["npx", "-y", "ft-mcp"],
+      "environment": {
+        "FT_CLIENT_ID": "your_client_uid",
+        "FT_CLIENT_SECRET": "your_client_secret"
+      },
+      "enabled": true
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>Other clients</summary>
+
+Any MCP client that supports stdio can run the npm package:
+
+```json
+{
+  "mcpServers": {
+    "ft-mcp": {
+      "command": "npx",
+      "args": ["-y", "ft-mcp"],
+      "env": {
+        "FT_CLIENT_ID": "your_client_uid",
+        "FT_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+</details>
 
 ## Tools
 
