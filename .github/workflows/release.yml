@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Release npm package and binaries
@@ -37,8 +41,8 @@ jobs:
       - name: Prepare release commit
         env:
           VERSION: ${{ inputs.version }}
-          NPM_PACKAGE: ft-mcp
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -48,7 +52,7 @@ jobs:
           fi
 
           if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid version: ${VERSION}. Use semver without a leading v, for example 1.2.3." >&2
+            echo "Invalid version: ${VERSION}. Use an npm release version without a leading v, for example 1.2.3 or 1.2.3-beta.1." >&2
             exit 1
           fi
 
@@ -57,9 +61,23 @@ jobs:
             exit 1
           fi
 
+          NPM_PACKAGE="$(node -p "require('./package.json').name")"
           git fetch --tags origin
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
-            echo "Tag v${VERSION} already exists." >&2
+            tag_commit="$(git rev-list -n 1 "v${VERSION}")"
+            head_commit="$(git rev-parse HEAD)"
+            if [[ "${tag_commit}" != "${head_commit}" ]]; then
+              echo "Tag v${VERSION} already exists and points at ${tag_commit}, not ${head_commit}." >&2
+              exit 1
+            fi
+            echo "Tag v${VERSION} already exists on this commit; continuing."
+            SKIP_RELEASE_COMMIT=1
+          else
+            CREATE_RELEASE_TAG=1
+          fi
+
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "GitHub release v${VERSION} already exists." >&2
             exit 1
           fi
 
@@ -78,13 +96,19 @@ jobs:
           npm test
           npm publish --dry-run --access public
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: release v${VERSION}"
-          git tag -a "v${VERSION}" -m "v${VERSION}"
-          git push origin HEAD:main
-          git push origin "v${VERSION}"
+          if [[ "${SKIP_RELEASE_COMMIT:-}" != "1" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package.json
+            git commit -m "chore: release v${VERSION}"
+            if [[ "${CREATE_RELEASE_TAG:-}" == "1" ]]; then
+              git tag -a "v${VERSION}" -m "v${VERSION}"
+            fi
+            git push origin HEAD:main
+            if [[ "${CREATE_RELEASE_TAG:-}" == "1" ]]; then
+              git push origin "v${VERSION}"
+            fi
+          fi
 
       - name: Build and publish GitHub release
         uses: goreleaser/goreleaser-action@v6
