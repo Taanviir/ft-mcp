@@ -57,7 +57,9 @@ func (t *tools) handleGetLocations(ctx context.Context, _ *mcp.CallToolRequest, 
 	if input.CampusID > 0 {
 		path = fmt.Sprintf("/campus/%d/locations", input.CampusID)
 	}
-	data, err := client.Get(path, paginationParams(input.Page, input.PerPage))
+	params := paginationParams(input.Page, input.PerPage)
+	params.Set("filter[active]", "true")
+	data, err := client.Get(path, params)
 	if err != nil {
 		return errorResult(err), nil, nil
 	}

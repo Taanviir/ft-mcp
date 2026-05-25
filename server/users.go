@@ -47,8 +47,9 @@ func (t *tools) handleListUsers(ctx context.Context, _ *mcp.CallToolRequest, inp
 }
 
 type userSubInput struct {
-	LoginOrID string `json:"login_or_id"    jsonschema:"login name or numeric ID of the 42 user"`
-	Page      int    `json:"page,omitempty" jsonschema:"page number, starting at 1"`
+	LoginOrID string `json:"login_or_id"        jsonschema:"login name or numeric ID of the 42 user"`
+	Page      int    `json:"page,omitempty"     jsonschema:"page number, starting at 1"`
+	PerPage   int    `json:"per_page,omitempty" jsonschema:"results per page, max 100"`
 }
 
 func (t *tools) handleGetUserCursus(ctx context.Context, _ *mcp.CallToolRequest, input userSubInput) (*mcp.CallToolResult, any, error) {
@@ -56,7 +57,7 @@ func (t *tools) handleGetUserCursus(ctx context.Context, _ *mcp.CallToolRequest,
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	data, err := client.Get("/users/"+input.LoginOrID+"/cursus_users", paginationParams(input.Page, 0))
+	data, err := client.Get("/users/"+input.LoginOrID+"/cursus_users", paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -68,7 +69,7 @@ func (t *tools) handleGetUserProjects(ctx context.Context, _ *mcp.CallToolReques
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	data, err := client.Get("/users/"+input.LoginOrID+"/projects_users", paginationParams(input.Page, 0))
+	data, err := client.Get("/users/"+input.LoginOrID+"/projects_users", paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
@@ -80,7 +81,7 @@ func (t *tools) handleGetUserAchievements(ctx context.Context, _ *mcp.CallToolRe
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
-	data, err := client.Get("/users/"+input.LoginOrID+"/achievements", paginationParams(input.Page, 0))
+	data, err := client.Get("/users/"+input.LoginOrID+"/achievements", paginationParams(input.Page, input.PerPage))
 	if err != nil {
 		return errorResult(err), nil, nil
 	}
