@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tanas/ft-mcp/intra"
+	"github.com/Taanviir/ft-mcp/intra"
 )
 
 type tools struct {

@@ -11,8 +11,8 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tanas/ft-mcp/intra"
-	tools "github.com/tanas/ft-mcp/server"
+	"github.com/Taanviir/ft-mcp/intra"
+	tools "github.com/Taanviir/ft-mcp/server"
 )
 
 func main() {

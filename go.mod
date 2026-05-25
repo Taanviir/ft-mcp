@@ -1,4 +1,4 @@
-module github.com/tanas/ft-mcp
+module github.com/Taanviir/ft-mcp
 
 go 1.26.3
 
