@@ -1,0 +1,41 @@
+{
+  "name": "ft-mcp",
+  "version": "1.1.1",
+  "description": "MCP server for the 42 API",
+  "license": "MIT",
+  "author": "Tanvir Ahmed Anas",
+  "homepage": "https://github.com/Taanviir/ft-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Taanviir/ft-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Taanviir/ft-mcp/issues"
+  },
+  "bin": {
+    "ft-mcp": "bin/ft-mcp.js"
+  },
+  "files": [
+    "bin/ft-mcp.js",
+    "scripts/install.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "test": "node --check bin/ft-mcp.js && node --check scripts/install.js",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "42",
+    "42api",
+    "mcp",
+    "modelcontextprotocol"
+  ]
+}
