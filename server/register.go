@@ -24,6 +24,7 @@ func RegisterAll(s *mcp.Server, c *intra.Client) {
 	t.registerUsers(s)
 	t.registerCampus(s)
 	t.registerProjects(s)
+	t.registerResources(s)
 	t.registerPrompts(s)
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"flag"
 	"log"
 	"net/http"
@@ -33,6 +34,10 @@ func main() {
 
 	switch *transport {
 	case "http":
+		authToken := os.Getenv("AUTH_TOKEN")
+		if authToken == "" {
+			log.Fatal("AUTH_TOKEN must be set when using --transport http")
+		}
 		if *port == "" {
 			if p := os.Getenv("PORT"); p != "" {
 				*port = p
@@ -46,8 +51,8 @@ func main() {
 		)
 		mux := http.NewServeMux()
 		mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-		mux.Handle("POST /mcp", withAuth(mcpHandler))
-		mux.Handle("GET /mcp", withAuth(mcpHandler))
+		mux.Handle("POST /mcp", withAuth(mcpHandler, authToken))
+		mux.Handle("GET /mcp", withAuth(mcpHandler, authToken))
 
 		addr := ":" + *port
 		log.Printf("ft-mcp listening on %s/mcp", addr)
@@ -62,16 +67,10 @@ func main() {
 	}
 }
 
-// withAuth wraps a handler with static bearer token auth when AUTH_TOKEN is set.
-// If AUTH_TOKEN is not set the handler is returned unwrapped.
-func withAuth(next http.Handler) http.Handler {
-	token := os.Getenv("AUTH_TOKEN")
-	if token == "" {
-		return next
-	}
+func withAuth(next http.Handler, token string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok || got != token {
+		if !ok || subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
