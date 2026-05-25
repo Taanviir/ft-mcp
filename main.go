@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"flag"
+	"html"
 	"log"
 	"net/http"
 	"net/url"
@@ -19,7 +20,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/redis/go-redis/v9"
 	"github.com/tanas/ft-mcp/intra"
-	"github.com/tanas/ft-mcp/server"
+	tools "github.com/tanas/ft-mcp/server"
 	tokenui "github.com/tanas/ft-mcp/server/token"
 )
 
@@ -74,6 +75,7 @@ func main() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 		mux.HandleFunc("/.well-known/oauth-authorization-server", oauthMetadata)
+		mux.HandleFunc("POST /register", registrationHandler)
 		mux.HandleFunc("/authorize", authorizeHandler)
 		mux.HandleFunc("GET /token", func(w http.ResponseWriter, r *http.Request) { tokenui.Serve(w, "", "") })
 		mux.HandleFunc("POST /token", tokenHandler(sessions))
@@ -227,18 +229,68 @@ func oauthMetadata(w http.ResponseWriter, r *http.Request) {
 		"issuer":                                base,
 		"authorization_endpoint":                base + "/authorize",
 		"token_endpoint":                        base + "/token",
+		"registration_endpoint":                 base + "/register",
 		"response_types_supported":              []string{"code"},
 		"grant_types_supported":                 []string{"authorization_code", "client_credentials"},
-		"code_challenge_methods_supported":      []string{"S256"},
+		"code_challenge_methods_supported":       []string{"S256"},
 		"token_endpoint_auth_methods_supported": []string{"client_secret_post", "client_secret_basic"},
+	})
+}
+
+// --- Dynamic client registration (RFC 7591) ---
+
+type clientReg struct {
+	secret       string
+	redirectURIs []string
+}
+
+var (
+	clientsMu sync.Mutex
+	clients   = map[string]clientReg{}
+)
+
+func registrationHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RedirectURIs []string `json:"redirect_uris"`
+		ClientName   string   `json:"client_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.RedirectURIs) == 0 {
+		http.Error(w, "redirect_uris required", http.StatusBadRequest)
+		return
+	}
+
+	idBytes := make([]byte, 16)
+	rand.Read(idBytes)
+	secretBytes := make([]byte, 32)
+	rand.Read(secretBytes)
+	clientID := base64.RawURLEncoding.EncodeToString(idBytes)
+	clientSecret := base64.RawURLEncoding.EncodeToString(secretBytes)
+
+	clientsMu.Lock()
+	clients[clientID] = clientReg{secret: clientSecret, redirectURIs: req.RedirectURIs}
+	clientsMu.Unlock()
+
+	log.Printf("oauth: registered client %q", req.ClientName)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]any{
+		"client_id":                  clientID,
+		"client_secret":              clientSecret,
+		"redirect_uris":              req.RedirectURIs,
+		"grant_types":                []string{"authorization_code"},
+		"response_types":             []string{"code"},
+		"token_endpoint_auth_method": "client_secret_post",
 	})
 }
 
 // --- Authorization Code + PKCE ---
 
 type codeEntry struct {
-	challenge string
-	expiresAt time.Time
+	challenge      string
+	ftClientID     string // set by the authorize form; empty for legacy clients
+	ftClientSecret string
+	expiresAt      time.Time
 }
 
 var (
@@ -271,27 +323,69 @@ func validRedirectURI(raw string) bool {
 	return host == "localhost" || host == "127.0.0.1" || u.Scheme == "https"
 }
 
-func authorizeHandler(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	redirectURI := q.Get("redirect_uri")
-	state := q.Get("state")
-	challenge := q.Get("code_challenge")
+const authorizeFormHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Connect ft-mcp</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;max-width:380px;margin:80px auto;padding:0 20px;color:#111}
+    h2{margin:0 0 6px}
+    p{margin:0 0 24px;color:#555;font-size:14px}
+    a{color:#0066ff}
+    label{display:block;margin-bottom:4px;font-weight:500;font-size:14px}
+    input[type=text],input[type=password]{display:block;width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;margin-bottom:14px;font-size:14px}
+    button{width:100%;padding:10px;background:#0066ff;color:#fff;border:none;border-radius:6px;font-size:15px;cursor:pointer}
+    button:hover{background:#0052cc}
+    .err{color:#c00;font-size:14px;margin-bottom:14px}
+  </style>
+</head>
+<body>
+  <h2>Connect ft-mcp</h2>
+  <p>Enter your <a href="https://profile.intra.42.fr/oauth/applications" target="_blank">42 API credentials</a> to grant access.</p>
+  <form method="POST">
+    {{ERROR}}
+    <input type="hidden" name="redirect_uri" value="{{REDIRECT_URI}}">
+    <input type="hidden" name="state" value="{{STATE}}">
+    <input type="hidden" name="code_challenge" value="{{CODE_CHALLENGE}}">
+    <input type="hidden" name="client_id" value="{{CLIENT_ID}}">
+    <label>Client UID</label>
+    <input type="text" name="ft_client_id" placeholder="u-s4t2ud-..." autocomplete="username" required>
+    <label>Client Secret</label>
+    <input type="password" name="ft_client_secret" autocomplete="current-password" required>
+    <button type="submit">Connect</button>
+  </form>
+</body>
+</html>`
 
-	if redirectURI == "" || challenge == "" {
-		http.Error(w, "missing redirect_uri or code_challenge", http.StatusBadRequest)
-		return
+func serveAuthorizeForm(w http.ResponseWriter, redirectURI, state, challenge, clientID, errMsg string) {
+	errHTML := ""
+	if errMsg != "" {
+		errHTML = `<div class="err">` + html.EscapeString(errMsg) + `</div>`
 	}
-	if !validRedirectURI(redirectURI) {
-		http.Error(w, "redirect_uri must be localhost or https", http.StatusBadRequest)
-		return
-	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	strings.NewReplacer(
+		"{{ERROR}}", errHTML,
+		"{{REDIRECT_URI}}", html.EscapeString(redirectURI),
+		"{{STATE}}", html.EscapeString(state),
+		"{{CODE_CHALLENGE}}", html.EscapeString(challenge),
+		"{{CLIENT_ID}}", html.EscapeString(clientID),
+	).WriteString(w, authorizeFormHTML)
+}
 
+func issueCodeAndRedirect(w http.ResponseWriter, r *http.Request, redirectURI, state, challenge, ftClientID, ftClientSecret string) {
 	b := make([]byte, 32)
 	rand.Read(b)
 	code := base64.RawURLEncoding.EncodeToString(b)
 
 	codeMu.Lock()
-	codes[code] = codeEntry{challenge: challenge, expiresAt: time.Now().Add(5 * time.Minute)}
+	codes[code] = codeEntry{
+		challenge:      challenge,
+		ftClientID:     ftClientID,
+		ftClientSecret: ftClientSecret,
+		expiresAt:      time.Now().Add(5 * time.Minute),
+	}
 	codeMu.Unlock()
 
 	log.Printf("oauth: code issued for redirect %s", redirectURI)
@@ -307,6 +401,52 @@ func authorizeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	callback.RawQuery = cq.Encode()
 	http.Redirect(w, r, callback.String(), http.StatusFound)
+}
+
+func authorizeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		r.ParseForm()
+		redirectURI := r.FormValue("redirect_uri")
+		state := r.FormValue("state")
+		challenge := r.FormValue("code_challenge")
+		clientID := r.FormValue("client_id")
+		ftClientID := r.FormValue("ft_client_id")
+		ftClientSecret := r.FormValue("ft_client_secret")
+
+		if !validRedirectURI(redirectURI) {
+			http.Error(w, "invalid redirect_uri", http.StatusBadRequest)
+			return
+		}
+		if ftClientID == "" || ftClientSecret == "" {
+			serveAuthorizeForm(w, redirectURI, state, challenge, clientID, "Client UID and Secret are required.")
+			return
+		}
+		c := intra.New(ftClientID, ftClientSecret)
+		if err := c.Validate(); err != nil {
+			log.Printf("oauth: invalid 42 credentials for %s", ftClientID)
+			serveAuthorizeForm(w, redirectURI, state, challenge, clientID, "Invalid credentials — check your Client UID and Secret.")
+			return
+		}
+		issueCodeAndRedirect(w, r, redirectURI, state, challenge, ftClientID, ftClientSecret)
+		return
+	}
+
+	q := r.URL.Query()
+	redirectURI := q.Get("redirect_uri")
+	state := q.Get("state")
+	challenge := q.Get("code_challenge")
+	clientID := q.Get("client_id")
+
+	if redirectURI == "" || challenge == "" {
+		http.Error(w, "missing redirect_uri or code_challenge", http.StatusBadRequest)
+		return
+	}
+	if !validRedirectURI(redirectURI) {
+		http.Error(w, "redirect_uri must be localhost or https", http.StatusBadRequest)
+		return
+	}
+
+	serveAuthorizeForm(w, redirectURI, state, challenge, clientID, "")
 }
 
 // --- Token endpoint ---
@@ -353,17 +493,13 @@ func tokenHandler(sessions sessionManager) http.HandlerFunc {
 				oauthError(w, "invalid_grant", http.StatusBadRequest)
 				return
 			}
-			if clientID == "" || clientSecret == "" {
-				oauthError(w, "invalid_client", http.StatusUnauthorized)
+
+			if entry.ftClientID == "" {
+				oauthError(w, "invalid_grant", http.StatusBadRequest)
 				return
 			}
-			c := intra.New(clientID, clientSecret)
-			if err := c.Validate(); err != nil {
-				log.Printf("token: invalid credentials for %s (authorization_code): %v", clientID, err)
-				oauthError(w, "invalid_client", http.StatusUnauthorized)
-				return
-			}
-			log.Printf("token: session created for %s (authorization_code)", clientID)
+			c := intra.New(entry.ftClientID, entry.ftClientSecret)
+			log.Printf("token: session created for %s (authorization_code)", entry.ftClientID)
 			writeToken(w, sessions.create(c))
 
 		case "client_credentials":

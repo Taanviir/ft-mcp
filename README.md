@@ -16,9 +16,20 @@ Create an application at [profile.intra.42.fr/oauth/applications/new](https://pr
 
 ### 2. Get a bearer token
 
-Visit **[ft-mcp.tanvirahmedanas.com/token](https://ft-mcp.tanvirahmedanas.com/token)**, enter your credentials, and copy the token.
+**Browser:** visit **[ft-mcp.tanvirahmedanas.com/token](https://ft-mcp.tanvirahmedanas.com/token)**, enter your credentials, and copy the token.
 
-> Claude.ai and Claude Code handle authentication automatically via OAuth — skip this step for those clients.
+**CLI:**
+```bash
+curl -s -X POST https://ft-mcp.tanvirahmedanas.com/token \
+  -d "grant_type=client_credentials" \
+  -d "client_id=YOUR_CLIENT_UID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  | jq -r .access_token
+```
+
+Tokens are valid for **24 hours**. When one expires, requests return `401` — just re-run the command above to get a fresh token and update your client config.
+
+> Claude Code handles authentication automatically via OAuth — skip this step for that client.
 
 ---
 
@@ -32,8 +43,9 @@ Go to **Settings → Connectors → Add custom connector**:
 | Field | Value |
 |-------|-------|
 | MCP Server URL | `https://ft-mcp.tanvirahmedanas.com/mcp` |
-| OAuth Client ID | your 42 Client UID |
-| OAuth Client Secret | your 42 Client Secret |
+| Authorization Header | `Bearer YOUR_TOKEN` |
+
+Get your token from [ft-mcp.tanvirahmedanas.com/token](https://ft-mcp.tanvirahmedanas.com/token).
 
 </details>
 
