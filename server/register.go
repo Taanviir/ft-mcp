@@ -5,32 +5,22 @@ import (
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tanas/ft-mcp/intra"
+	"github.com/Taanviir/ft-mcp/intra"
 )
 
-type clientKey struct{}
-
 type tools struct {
-	fallback *intra.Client // non-nil for stdio, nil for HTTP (client comes from context)
+	client *intra.Client
 }
 
-// WithClient attaches a 42 API client to the context (used by HTTP middleware).
-func WithClient(ctx context.Context, c *intra.Client) context.Context {
-	return context.WithValue(ctx, clientKey{}, c)
-}
-
-func (t *tools) getClient(ctx context.Context) (*intra.Client, error) {
-	if c, ok := ctx.Value(clientKey{}).(*intra.Client); ok && c != nil {
-		return c, nil
+func (t *tools) getClient(_ context.Context) (*intra.Client, error) {
+	if t.client != nil {
+		return t.client, nil
 	}
-	if t.fallback != nil {
-		return t.fallback, nil
-	}
-	return nil, fmt.Errorf("not authenticated — provide your 42 API credentials")
+	return nil, fmt.Errorf("not authenticated — FT_CLIENT_ID and FT_CLIENT_SECRET must be set")
 }
 
 func RegisterAll(s *mcp.Server, c *intra.Client) {
-	t := &tools{fallback: c}
+	t := &tools{client: c}
 	t.registerUsers(s)
 	t.registerCampus(s)
 	t.registerProjects(s)

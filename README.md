@@ -219,12 +219,17 @@ go build -o ft-mcp .
 FT_CLIENT_ID="your_client_uid" FT_CLIENT_SECRET="your_client_secret" ./ft-mcp
 ```
 
-HTTP mode is also available:
+HTTP mode is also available for self-hosted deployments:
 
 ```bash
 go build -o ft-mcp .
+FT_CLIENT_ID="your_client_uid" \
+FT_CLIENT_SECRET="your_client_secret" \
+AUTH_TOKEN="your_secret_token" \
 ./ft-mcp --transport http --port 8080
 ```
+
+Clients must send `Authorization: Bearer your_secret_token` with every request. `AUTH_TOKEN` is required — the server will not start without it.
 
 ## API reference
 
