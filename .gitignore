@@ -1,2 +1,6 @@
 .env
 ft-mcp
+dist/
+*.tgz
+bin/ft-mcp-bin
+bin/ft-mcp-bin.exe

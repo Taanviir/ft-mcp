@@ -1,7 +1,8 @@
 version: 2
 
 builds:
-  - env:
+  - binary: ft-mcp
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
@@ -13,12 +14,8 @@ builds:
 
 archives:
   - formats:
-      - tar.gz
-    format_overrides:
-      - goos: windows
-        formats:
-          - zip
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+      - binary
+    name_template: '{{ .ProjectName }}-{{ if eq .Os "windows" }}win32{{ else }}{{ .Os }}{{ end }}-{{ if eq .Arch "amd64" }}x64{{ else }}{{ .Arch }}{{ end }}'
 
 checksum:
   name_template: "checksums.txt"
