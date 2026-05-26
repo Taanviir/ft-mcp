@@ -2,11 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release, without the leading v"
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -17,7 +12,7 @@ concurrency:
 
 jobs:
   release:
-    name: Release npm package and binaries
+    name: Build and publish GitHub release
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +20,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -35,49 +29,30 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Prepare release commit
+      - name: Validate
         env:
-          VERSION: ${{ inputs.version }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
           if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
-            echo "Run releases from the main branch. Current ref: ${GITHUB_REF_NAME}" >&2
+            echo "Releases must be triggered from main. Current ref: ${GITHUB_REF_NAME}" >&2
             exit 1
           fi
 
-          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid version: ${VERSION}. Use an npm release version without a leading v, for example 1.2.3 or 1.2.3-beta.1." >&2
-            exit 1
-          fi
-
-          if [[ -z "${NODE_AUTH_TOKEN}" ]]; then
-            echo "NPM_TOKEN repository secret is required before running a release." >&2
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "NPM_TOKEN repository secret is required." >&2
             exit 1
           fi
 
           NPM_PACKAGE="$(node -p "require('./package.json').name")"
-          git fetch --tags origin
-          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
-            tag_commit="$(git rev-list -n 1 "v${VERSION}")"
-            head_commit="$(git rev-parse HEAD)"
-            if [[ "${tag_commit}" != "${head_commit}" ]]; then
-              echo "Tag v${VERSION} already exists and points at ${tag_commit}, not ${head_commit}." >&2
-              exit 1
-            fi
-            echo "Tag v${VERSION} already exists on this commit; continuing."
-            SKIP_RELEASE_COMMIT=1
-          else
-            CREATE_RELEASE_TAG=1
-          fi
+          VERSION="$(node -p "require('./package.json').version")"
 
-          if gh release view "v${VERSION}" >/dev/null 2>&1; then
-            echo "GitHub release v${VERSION} already exists." >&2
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists." >&2
             exit 1
           fi
 
@@ -86,29 +61,14 @@ jobs:
             exit 1
           fi
 
-          node <<'EOF'
-          const fs = require("node:fs");
-          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-          pkg.version = process.env.VERSION;
-          fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
-          EOF
+      - name: Test
+        run: npm test
 
-          npm test
-          npm publish --dry-run --access public
-
-          if [[ "${SKIP_RELEASE_COMMIT:-}" != "1" ]]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package.json
-            git commit -m "chore: release v${VERSION}"
-            if [[ "${CREATE_RELEASE_TAG:-}" == "1" ]]; then
-              git tag -a "v${VERSION}" -m "v${VERSION}"
-            fi
-            git push origin HEAD:main
-            if [[ "${CREATE_RELEASE_TAG:-}" == "1" ]]; then
-              git push origin "v${VERSION}"
-            fi
-          fi
+      - name: Tag release
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+          git push origin "v${VERSION}"
 
       - name: Build and publish GitHub release
         uses: goreleaser/goreleaser-action@v6
@@ -118,7 +78,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to npm
+  publish-npm:
+    name: Publish to npm
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
